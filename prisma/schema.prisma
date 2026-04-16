@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  role            Role
+  name            String
+  avatarUrl       String?          @map("avatar_url")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  teacher         Teacher?
+  
+  @@map("users")
+}
+
+model Teacher {
+  id                    String           @id @default(uuid())
+  userId                String           @unique @map("user_id")
+  schoolId              String           @map("school_id")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school                School           @relation(fields: [schoolId], references: [id])
+  assessments           Assessment[]
+  lessons               Lesson[]
+  quizzes               Quiz[]
+
+  @@map("teachers")
+}
+
+model School {
+  id        String    @id @default(uuid())
+  name      String
+  teachers  Teacher[]
+
+  @@map("schools")
+}
+
+model Lesson {
+  id               String          @id @default(uuid())
+  teacherId        String          @map("teacher_id")
+  title            String
+  status           LessonStatus    @default(draft)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  teacher          Teacher         @relation(fields: [teacherId], references: [id])
+
+  @@map("lessons")
+}
+
+model Quiz {
+  id               String          @id @default(uuid())
+  teacherId        String          @map("teacher_id")
+  title            String
+  status           QuizStatus      @default(draft)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  teacher          Teacher         @relation(fields: [teacherId], references: [id])
+
+  @@map("quizzes")
+}
+
+model Assessment {
+  id               String                   @id @default(uuid())
+  teacherId        String                   @map("teacher_id")
+  title            String
+  status           QuizStatus               @default(draft)
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  teacher          Teacher                  @relation(fields: [teacherId], references: [id])
+
+  @@map("assessments")
+}
+
+enum Role {
+  teacher
+  student
+  admin
+}
+
+enum LessonStatus {
+  draft
+  saved
+  published
+  generated
+}
+
+enum QuizStatus {
+  draft
+  saved
+  published
+  generated
+}
+
