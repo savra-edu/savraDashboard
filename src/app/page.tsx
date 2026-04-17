@@ -19,6 +19,8 @@ interface Stats {
     lessons: number;
     quizzes: number;
     assessments: number;
+    worksheets?: number;
+    questionPapers?: number;
   };
   chartData: Array<{ date: string; count: number }>;
 }
@@ -220,10 +222,16 @@ export default function Dashboard() {
                 color="#8b5cf6"
               />
               <ProgressBar
-                label="Assessments"
-                value={stats.artifactsBreakdown.assessments}
+                label="Worksheets"
+                value={stats.artifactsBreakdown.worksheets ?? 0}
                 total={stats.periodArtifacts}
-                color="#10b981"
+                color="var(--success)"
+              />
+              <ProgressBar
+                label="Question Papers"
+                value={stats.artifactsBreakdown.questionPapers ?? 0}
+                total={stats.periodArtifacts}
+                color="#0ea5e9"
               />
             </div>
           </div>

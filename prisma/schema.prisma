@@ -69,6 +69,7 @@ model Assessment {
   teacherId        String                   @map("teacher_id")
   title            String
   status           QuizStatus               @default(draft)
+  isWorksheet      Boolean                  @default(false) @map("is_worksheet")
   createdAt        DateTime                 @default(now()) @map("created_at")
   teacher          Teacher                  @relation(fields: [teacherId], references: [id])
 

@@ -20,14 +20,28 @@ export async function GET(request: Request) {
       totalTeachersLifetime,
       periodLessons,
       periodQuizzes,
-      periodAssessments,
+      periodAssessmentsWorksheet,
+      periodAssessmentsQuestionPaper,
     ] = await Promise.all([
       prisma.teacher.count({ where: { createdAt: { gte: chartStartDate } } }),
       prisma.teacher.count({ where: { createdAt: { gte: todayStart } } }),
       prisma.teacher.count(),
       prisma.lesson.count({ where: { createdAt: { gte: chartStartDate } } }),
       prisma.quiz.count({ where: { createdAt: { gte: chartStartDate } } }),
-      prisma.assessment.count({ where: { createdAt: { gte: chartStartDate } } }),
+      prisma
+        .$queryRaw<Array<{ count: bigint | number }>>`
+          SELECT COUNT(*) as count
+          FROM "assessments"
+          WHERE "created_at" >= ${chartStartDate} AND "is_worksheet" = true
+        `
+        .then((rows) => Number(rows?.[0]?.count ?? 0)),
+      prisma
+        .$queryRaw<Array<{ count: bigint | number }>>`
+          SELECT COUNT(*) as count
+          FROM "assessments"
+          WHERE "created_at" >= ${chartStartDate} AND "is_worksheet" = false
+        `
+        .then((rows) => Number(rows?.[0]?.count ?? 0)),
     ]);
 
     // Fetch daily teacher join counts
@@ -66,11 +80,18 @@ export async function GET(request: Request) {
         periodTeachers,
         teachersToday,
         totalTeachersLifetime,
-        periodArtifacts: periodLessons + periodQuizzes + periodAssessments,
+        periodArtifacts:
+          periodLessons +
+          periodQuizzes +
+          periodAssessmentsWorksheet +
+          periodAssessmentsQuestionPaper,
         artifactsBreakdown: {
           lessons: periodLessons,
           quizzes: periodQuizzes,
-          assessments: periodAssessments
+          assessments:
+            periodAssessmentsWorksheet + periodAssessmentsQuestionPaper,
+          worksheets: periodAssessmentsWorksheet,
+          questionPapers: periodAssessmentsQuestionPaper,
         },
         chartData
       }

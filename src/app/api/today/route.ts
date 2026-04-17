@@ -6,19 +6,38 @@ export async function GET() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [lessonsToday, quizzesToday, assessmentsToday] = await Promise.all([
+    const [
+      lessonsToday,
+      quizzesToday,
+      assessmentsWorksheetToday,
+      assessmentsQuestionPaperToday,
+    ] = await Promise.all([
       prisma.lesson.findMany({ where: { createdAt: { gte: todayStart } }, select: { teacherId: true } }),
       prisma.quiz.findMany({ where: { createdAt: { gte: todayStart } }, select: { teacherId: true } }),
-      prisma.assessment.findMany({ where: { createdAt: { gte: todayStart } }, select: { teacherId: true } })
+      prisma.$queryRaw<Array<{ teacher_id: string }>>`
+        SELECT "teacher_id"
+        FROM "assessments"
+        WHERE "created_at" >= ${todayStart} AND "is_worksheet" = true
+      `.then(rows => rows.map(r => ({ teacherId: r.teacher_id }))),
+      prisma.$queryRaw<Array<{ teacher_id: string }>>`
+        SELECT "teacher_id"
+        FROM "assessments"
+        WHERE "created_at" >= ${todayStart} AND "is_worksheet" = false
+      `.then(rows => rows.map(r => ({ teacherId: r.teacher_id }))),
     ]);
 
     const activeSet = new Set<string>();
 
     lessonsToday.forEach(x => activeSet.add(x.teacherId));
     quizzesToday.forEach(x => activeSet.add(x.teacherId));
-    assessmentsToday.forEach(x => activeSet.add(x.teacherId));
+    assessmentsWorksheetToday.forEach(x => activeSet.add(x.teacherId));
+    assessmentsQuestionPaperToday.forEach(x => activeSet.add(x.teacherId));
 
-    const totalArtifactsToday = lessonsToday.length + quizzesToday.length + assessmentsToday.length;
+    const assessmentsTodayTotal =
+      assessmentsWorksheetToday.length + assessmentsQuestionPaperToday.length;
+
+    const totalArtifactsToday =
+      lessonsToday.length + quizzesToday.length + assessmentsTodayTotal;
 
     // Find ALL teachers that signed up today OR actively generated something today
     const rawTeachers = await prisma.teacher.findMany({
@@ -63,7 +82,9 @@ export async function GET() {
         totalArtifactsToday,
         lessonsToday: lessonsToday.length,
         quizzesToday: quizzesToday.length,
-        assessmentsToday: assessmentsToday.length,
+        assessmentsToday: assessmentsTodayTotal,
+        assessmentsWorksheetToday: assessmentsWorksheetToday.length,
+        assessmentsQuestionPaperToday: assessmentsQuestionPaperToday.length,
         activeUsersToday: activeSet.size,
         teachersList
       }

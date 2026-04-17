@@ -21,6 +21,8 @@ interface TodayStats {
   lessonsToday: number;
   quizzesToday: number;
   assessmentsToday: number;
+  assessmentsWorksheetToday?: number;
+  assessmentsQuestionPaperToday?: number;
   activeUsersToday: number;
   teachersList: TodayTeacher[];
 }
@@ -133,6 +135,10 @@ export default function TodayPage() {
             <div style={{ padding: '2rem' }}>
               <div style={{ color: 'var(--muted)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Assessments</div>
               <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--foreground)' }}>{stats.assessmentsToday}</div>
+              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                <div>Worksheets: <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{stats.assessmentsWorksheetToday ?? 0}</span></div>
+                <div>Question Papers: <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{stats.assessmentsQuestionPaperToday ?? 0}</span></div>
+              </div>
             </div>
           </div>
         </div>
