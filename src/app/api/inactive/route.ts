@@ -6,37 +6,40 @@ export async function GET() {
     const inactiveThreshold = new Date();
     inactiveThreshold.setDate(inactiveThreshold.getDate() - 14);
 
-    const allTeachers = await prisma.teacher.findMany({
-      include: {
-        user: { select: { name: true, email: true } },
-        school: { select: { name: true } },
-        lessons: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
-        quizzes: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
-        assessments: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } }
-      }
-    });
+    // Using queryRaw to avoid any Prisma Client caching issues
+    const rawTeachers: any = await prisma.$queryRaw`
+      SELECT 
+        t.id, t.created_at as "createdAt",
+        u.name as teacher_name, u.email as teacher_email,
+        s.name as school_name
+      FROM teachers t
+      JOIN users u ON t.user_id = u.id
+      JOIN schools s ON t.school_id = s.id
+    `;
 
-    const mappedTeachers = await Promise.all(allTeachers.map(async t => {
-      const lastLesson = t.lessons[0]?.createdAt;
-      const lastQuiz = t.quizzes[0]?.createdAt;
-      const lastAssessment = t.assessments[0]?.createdAt;
+    const mappedTeachers = await Promise.all(rawTeachers.map(async (t: any) => {
+      const [lastLesson, lastQuiz, lastAssessment] = await Promise.all([
+        prisma.lesson.findFirst({ where: { teacherId: t.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+        prisma.quiz.findFirst({ where: { teacherId: t.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+        prisma.assessment.findFirst({ where: { teacherId: t.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+      ]);
 
-      const dates = [lastLesson, lastQuiz, lastAssessment].filter(Boolean) as Date[];
+      const dates = [lastLesson?.createdAt, lastQuiz?.createdAt, lastAssessment?.createdAt].filter(Boolean) as Date[];
       let lastActiveAt = dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
       
       if (!lastActiveAt) {
           lastActiveAt = new Date(t.createdAt);
       }
 
-      const rawTeacher: any = await prisma.$queryRaw`SELECT phone FROM teachers WHERE id = ${t.id} LIMIT 1`;
-      const phone = rawTeacher?.[0]?.phone || null;
+      const rawPhoneRes: any = await prisma.$queryRaw`SELECT phone FROM teachers WHERE id = ${t.id} LIMIT 1`;
+      const phone = rawPhoneRes?.[0]?.phone || null;
 
       return {
         id: t.id,
-        name: t.user.name,
-        email: t.user.email,
+        name: t.teacher_name,
+        email: t.teacher_email,
         phoneNumber: phone,
-        schoolName: t.school.name,
+        schoolName: t.school_name,
         createdAt: t.createdAt,
         lastActiveAt
       };

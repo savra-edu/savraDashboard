@@ -25,8 +25,6 @@ model Teacher {
   userId                String           @unique @map("user_id")
   schoolId              String           @map("school_id")
   phone                 String?
-  grade                 String?
-  subjects              String?
   createdAt             DateTime         @default(now()) @map("created_at")
   user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   school                School           @relation(fields: [schoolId], references: [id])

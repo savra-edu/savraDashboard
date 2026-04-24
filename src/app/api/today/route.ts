@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+// Cache bust: 2026-04-24
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
@@ -18,20 +19,20 @@ export async function GET() {
         SELECT "teacher_id"
         FROM "assessments"
         WHERE "created_at" >= ${todayStart} AND "is_worksheet" = true
-      `.then(rows => rows.map(r => ({ teacherId: r.teacher_id }))),
+      `.then((rows: Array<{ teacher_id: string }>) => rows.map((r: { teacher_id: string }) => ({ teacherId: r.teacher_id }))),
       prisma.$queryRaw<Array<{ teacher_id: string }>>`
         SELECT "teacher_id"
         FROM "assessments"
         WHERE "created_at" >= ${todayStart} AND "is_worksheet" = false
-      `.then(rows => rows.map(r => ({ teacherId: r.teacher_id }))),
+      `.then((rows: Array<{ teacher_id: string }>) => rows.map((r: { teacher_id: string }) => ({ teacherId: r.teacher_id }))),
     ]);
 
     const activeSet = new Set<string>();
 
-    lessonsToday.forEach(x => activeSet.add(x.teacherId));
-    quizzesToday.forEach(x => activeSet.add(x.teacherId));
-    assessmentsWorksheetToday.forEach(x => activeSet.add(x.teacherId));
-    assessmentsQuestionPaperToday.forEach(x => activeSet.add(x.teacherId));
+    lessonsToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
+    quizzesToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
+    assessmentsWorksheetToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
+    assessmentsQuestionPaperToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
 
     const assessmentsTodayTotal =
       assessmentsWorksheetToday.length + assessmentsQuestionPaperToday.length;
@@ -47,41 +48,33 @@ export async function GET() {
           { id: { in: Array.from(activeSet) } }
         ]
       },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
+        schoolId: true,
         user: { select: { name: true, email: true } },
         school: { select: { name: true } },
-        _count: {
-          select: { lessons: true, quizzes: true, assessments: true }
-        }
+        _count: { select: { lessons: true, quizzes: true, assessments: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
 
     let newTeachersCount = 0;
 
-    const teachersList = await Promise.all(rawTeachers.map(async (t) => {
+    const teachersList = await Promise.all(rawTeachers.map(async (t: any) => {
       const isNewToday = new Date(t.createdAt) >= todayStart;
       if (isNewToday) newTeachersCount++;
 
-      // Fetch raw data to ensure we get 'phone' and other potentially unmapped fields
+      // Fetch raw phone only
       const rawTeacher: any = await prisma.$queryRaw`SELECT phone FROM teachers WHERE id = ${t.id} LIMIT 1`;
       const phone = rawTeacher?.[0]?.phone || null;
-
-      // Fetch grades from teacher_classes
-      const rawGrades: any = await prisma.$queryRaw`
-          SELECT DISTINCT c.grade 
-          FROM teacher_classes tc
-          JOIN classes c ON tc.class_id = c.id
-          WHERE tc.teacher_id = ${t.id}
-      `;
-      const grades = rawGrades.map((g: any) => g.grade).filter(Boolean).join(', ') || 'N/A';
 
       return {
         id: t.id,
         name: t.user?.name || 'Unknown',
         email: t.user?.email || 'Unknown',
         phoneNumber: phone,
-        grade: grades,
+        grade: 'N/A', // Grade fetching removed as requested
         schoolName: t.school?.name || 'Unknown',
         createdAt: t.createdAt,
         isNewToday,

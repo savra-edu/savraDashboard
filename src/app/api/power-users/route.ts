@@ -3,23 +3,33 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // Fetch all teachers with counts
-    const allTeachers = await prisma.teacher.findMany({
-      include: {
-        user: { select: { name: true, email: true, avatarUrl: true } },
-        school: { select: { name: true } },
-        _count: { select: { lessons: true, quizzes: true, assessments: true } }
-      }
-    });
+    // We use queryRaw to avoid any Prisma Client caching issues regarding the 'grade' column
+    const rawTeachers: any = await prisma.$queryRaw`
+      SELECT 
+        t.id, t.created_at as "createdAt",
+        u.name as teacher_name, u.email as teacher_email, u.avatar_url as "avatarUrl",
+        s.name as school_name
+      FROM teachers t
+      JOIN users u ON t.user_id = u.id
+      JOIN schools s ON t.school_id = s.id
+    `;
 
     // Map and calculate totals
-    const powerUsers = await Promise.all(allTeachers.map(async t => {
-        const total = t._count.lessons + t._count.quizzes + t._count.assessments;
+    const powerUsers = await Promise.all(rawTeachers.map(async (t: any) => {
+        const countsRes: any = await prisma.$queryRaw`
+            SELECT 
+                (SELECT COUNT(*) FROM lessons WHERE teacher_id = ${t.id}) as lessons,
+                (SELECT COUNT(*) FROM quizzes WHERE teacher_id = ${t.id}) as quizzes,
+                (SELECT COUNT(*) FROM assessments WHERE teacher_id = ${t.id}) as assessments
+        `;
+        const counts = countsRes[0];
+        const total = Number(counts.lessons) + Number(counts.quizzes) + Number(counts.assessments);
         
-        // Fetch phone and grade using raw SQL for reliability
-        const rawTeacher: any = await prisma.$queryRaw`SELECT phone FROM teachers WHERE id = ${t.id} LIMIT 1`;
-        const phone = rawTeacher?.[0]?.phone || null;
+        // Fetch raw phone
+        const rawPhoneRes: any = await prisma.$queryRaw`SELECT phone FROM teachers WHERE id = ${t.id} LIMIT 1`;
+        const phone = rawPhoneRes?.[0]?.phone || null;
 
+        // Fetch grades from teacher_classes
         const rawGrades: any = await prisma.$queryRaw`
             SELECT DISTINCT c.grade 
             FROM teacher_classes tc
@@ -39,17 +49,17 @@ export async function GET() {
 
         return {
             id: t.id,
-            name: t.user.name,
-            email: t.user.email,
-            avatarUrl: t.user.avatarUrl,
-            schoolName: t.school.name,
+            name: t.teacher_name,
+            email: t.teacher_email,
+            avatarUrl: t.avatarUrl,
+            schoolName: t.school_name,
             phone,
             grade: grades,
             lastActiveAt,
             artifactCounts: {
-                lessons: t._count.lessons,
-                quizzes: t._count.quizzes,
-                assessments: t._count.assessments,
+                lessons: Number(counts.lessons),
+                quizzes: Number(counts.quizzes),
+                assessments: Number(counts.assessments),
                 total
             }
         };
