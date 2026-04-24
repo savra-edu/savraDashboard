@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { MessageSquare, Star, User, Calendar, ChevronLeft, ChevronRight, X, Phone, School, GraduationCap } from 'lucide-react';
+import { MessageSquare, Star, User, Calendar, ChevronLeft, ChevronRight, X, Phone, School, GraduationCap, Search } from 'lucide-react';
 
 interface FeedbackItem {
   id: string;
@@ -27,17 +27,26 @@ export default function FeedbackPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [distribution, setDistribution] = useState<any>(null);
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
 
   useEffect(() => {
-    fetchFeedback(page, ratingFilter);
-  }, [page, ratingFilter]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const fetchFeedback = async (pageNum: number, rating: number | null) => {
+  useEffect(() => {
+    fetchFeedback(page, ratingFilter, debouncedSearch);
+  }, [page, ratingFilter, debouncedSearch]);
+
+  const fetchFeedback = async (pageNum: number, rating: number | null, search: string) => {
     setLoading(true);
     try {
-      const url = `/api/feedback?page=${pageNum}${rating ? `&rating=${rating}` : ''}`;
+      const url = `/api/feedback?page=${pageNum}${rating ? `&rating=${rating}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
@@ -124,6 +133,34 @@ export default function FeedbackPage() {
             )}
           </div>
         )}
+
+        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ position: 'relative', width: '320px' }}>
+            <Search style={{ position: 'absolute', left: '12px', top: '10px', width: '16px', color: 'var(--muted)' }} />
+            <input 
+              type="text" 
+              placeholder="Search by teacher name..." 
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+              style={{ 
+                width: '100%', padding: '0.5rem 1rem 0.5rem 2.5rem', 
+                borderRadius: '0.75rem', border: '1px solid var(--card-border)',
+                background: 'var(--card-bg)', fontSize: '0.875rem', outline: 'none'
+              }} 
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: '10px', top: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="table-container">

@@ -7,9 +7,10 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const ratingFilter = searchParams.get('rating');
+    const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    // Base query for stats (always unfiltered by rating for the global summary)
+    // Base query for stats (always unfiltered by rating or search for the global summary)
     const statsRes: any = await prisma.$queryRaw`
       SELECT 
         rating,
@@ -39,6 +40,8 @@ export async function GET(request: Request) {
     let feedback: any[];
     let total: number;
 
+    const searchPattern = `%${search}%`;
+
     if (ratingFilter) {
       const r = parseInt(ratingFilter);
       feedback = await prisma.$queryRaw`
@@ -47,11 +50,23 @@ export async function GET(request: Request) {
         JOIN teachers t ON f.teacher_id = t.id
         JOIN users u ON t.user_id = u.id
         JOIN schools s ON t.school_id = s.id
-        WHERE f.rating = ${r}
+        WHERE f.rating = ${r} AND u.name ILIKE ${searchPattern}
         ORDER BY f.created_at DESC
         LIMIT ${limit} OFFSET ${skip}
       `;
-      total = distribution[r as keyof typeof distribution] || 0;
+      // For total with search, we need a separate count if search is present
+      if (search) {
+        const countRes: any = await prisma.$queryRaw`
+          SELECT COUNT(*) 
+          FROM feedback f 
+          JOIN teachers t ON f.teacher_id = t.id 
+          JOIN users u ON t.user_id = u.id 
+          WHERE f.rating = ${r} AND u.name ILIKE ${searchPattern}
+        `;
+        total = Number(countRes[0].count);
+      } else {
+        total = distribution[r as keyof typeof distribution] || 0;
+      }
     } else {
       feedback = await prisma.$queryRaw`
         SELECT f.*, u.name as teacher_name, u.email as teacher_email, s.name as school_name
@@ -59,10 +74,22 @@ export async function GET(request: Request) {
         JOIN teachers t ON f.teacher_id = t.id
         JOIN users u ON t.user_id = u.id
         JOIN schools s ON t.school_id = s.id
+        WHERE u.name ILIKE ${searchPattern}
         ORDER BY f.created_at DESC
         LIMIT ${limit} OFFSET ${skip}
       `;
-      total = distribution.total;
+      if (search) {
+        const countRes: any = await prisma.$queryRaw`
+          SELECT COUNT(*) 
+          FROM feedback f 
+          JOIN teachers t ON f.teacher_id = t.id 
+          JOIN users u ON t.user_id = u.id 
+          WHERE u.name ILIKE ${searchPattern}
+        `;
+        total = Number(countRes[0].count);
+      } else {
+        total = distribution.total;
+      }
     }
 
     const mappedFeedback = await Promise.all(feedback.map(async (f: any) => {
