@@ -76,7 +76,7 @@ export default function PowerUsersPage() {
                     #{index + 1}
                   </div>
                 )}
-                
+
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                   <div style={{ width: '56px', height: '56px', borderRadius: '1rem', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}>
                     {user.name.charAt(0)}
@@ -85,12 +85,12 @@ export default function PowerUsersPage() {
                     <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700 }}>{user.name}</h3>
                     <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>{user.email}</p>
                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
-                         <Phone size={12} /> {user.phone || '—'}
-                       </div>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
-                         <GraduationCap size={12} /> {user.grade}
-                       </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                        <Phone size={12} /> {user.phone || '—'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                        <GraduationCap size={12} /> {user.grade}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -120,7 +120,7 @@ export default function PowerUsersPage() {
                     {user.schoolName}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    <Clock size={14} />
+
                     Active {new Date(user.lastActiveAt).toLocaleDateString()}
                   </div>
                 </div>
