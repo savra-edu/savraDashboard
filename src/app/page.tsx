@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   Users, BookOpen, GraduationCap, LayoutDashboard,
-  ArrowUpRight, BarChart3, FileText, Globe
+  ArrowUpRight, BarChart3, FileText, Globe, Activity, Zap
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -153,6 +153,53 @@ export default function Dashboard() {
             </div>
           </div>
         </section>
+
+        <div style={{ 
+          display: 'flex', 
+          gap: '0.75rem', 
+          marginBottom: '1.5rem', 
+          overflowX: 'auto', 
+          paddingBottom: '0.5rem',
+          scrollbarWidth: 'none'
+        }}>
+          {[
+            { label: "Teachers Directory", href: "/teachers", icon: <Users size={16} />, color: "#6366f1" },
+            { label: "Feedback", href: "/feedback", icon: <FileText size={16} />, color: "#f59e0b" },
+            { label: "Today's Pulse", href: "/today", icon: <Activity size={16} />, color: "#10b981" },
+            { label: "Daily Active Users", href: "/dau", icon: <Zap size={16} />, color: "#ef4444" },
+            { label: "Weekly Active Users", href: "/wau", icon: <BarChart3 size={16} />, color: "#8b5cf6" },
+          ].map((action, i) => (
+            <a 
+              key={i} 
+              href={action.href}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.65rem', 
+                padding: '0.65rem 1rem', 
+                background: 'var(--card-bg)', 
+                borderRadius: '0.75rem', 
+                border: '1px solid var(--card-border)',
+                color: 'var(--foreground)',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = action.color;
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = 'var(--card-border)';
+              }}
+            >
+              <span style={{ color: action.color, display: 'flex', alignItems: 'center' }}>{action.icon}</span>
+              {action.label}
+            </a>
+          ))}
+        </div>
 
         <div className="chart-grid">
           <div className="card">

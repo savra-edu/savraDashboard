@@ -59,21 +59,36 @@ export async function GET() {
 
     let newTeachersCount = 0;
 
-    const teachersList = rawTeachers.map(t => {
+    const teachersList = await Promise.all(rawTeachers.map(async (t) => {
       const isNewToday = new Date(t.createdAt) >= todayStart;
       if (isNewToday) newTeachersCount++;
+
+      // Fetch raw data to ensure we get 'phone' and other potentially unmapped fields
+      const rawTeacher: any = await prisma.$queryRaw`SELECT phone FROM teachers WHERE id = ${t.id} LIMIT 1`;
+      const phone = rawTeacher?.[0]?.phone || null;
+
+      // Fetch grades from teacher_classes
+      const rawGrades: any = await prisma.$queryRaw`
+          SELECT DISTINCT c.grade 
+          FROM teacher_classes tc
+          JOIN classes c ON tc.class_id = c.id
+          WHERE tc.teacher_id = ${t.id}
+      `;
+      const grades = rawGrades.map((g: any) => g.grade).filter(Boolean).join(', ') || 'N/A';
 
       return {
         id: t.id,
         name: t.user?.name || 'Unknown',
         email: t.user?.email || 'Unknown',
+        phoneNumber: phone,
+        grade: grades,
         schoolName: t.school?.name || 'Unknown',
         createdAt: t.createdAt,
         isNewToday,
         generatedToday: activeSet.has(t.id),
         totalArtifacts: t._count.lessons + t._count.quizzes + t._count.assessments
       };
-    });
+    }));
 
     return NextResponse.json({
       success: true,

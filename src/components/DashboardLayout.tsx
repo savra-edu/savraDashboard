@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   Users, BookOpen, GraduationCap, LayoutDashboard, 
-  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock
+  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, Trophy
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -103,6 +103,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <Link href="/dau" className={`nav-item ${pathname === '/dau' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Activity />
             <span>Daily Active Users</span>
+          </Link>
+          <Link href="/wau" className={`nav-item ${pathname === '/wau' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <Activity />
+            <span>Weekly Active Users</span>
+          </Link>
+          <Link href="/inactive" className={`nav-item ${pathname === '/inactive' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <Users />
+            <span>Inactive Users</span>
+          </Link>
+          <Link href="/feedback" className={`nav-item ${pathname === '/feedback' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <MessageSquare />
+            <span>Feedback</span>
           </Link>
           <Link href="/teachers" className={`nav-item ${pathname === '/teachers' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Users />

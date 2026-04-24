@@ -182,14 +182,16 @@ export default function TodayPage() {
                 <thead>
                   <tr>
                     <th>Teacher</th>
+                    <th>Phone</th>
                     <th>School</th>
+                    <th>Grade</th>
                     <th>Joined</th>
                     <th>Today's Status</th>
-                    <th style={{ textAlign: 'right' }}>Lifetime Artifacts</th>
+                    <th style={{ textAlign: 'right' }}>Artifacts</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {activeDirectory.map((teacher) => (
+                  {activeDirectory.map((teacher: any) => (
                     <tr key={teacher.id}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -202,8 +204,14 @@ export default function TodayPage() {
                           </div>
                         </div>
                       </td>
+                      <td className="text-muted" style={{ fontSize: '0.875rem' }}>{teacher.phoneNumber || '—'}</td>
                       <td>{teacher.schoolName}</td>
-                      <td>{new Date(teacher.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                      <td>
+                        <span className="badge" style={{ background: '#f8fafc', border: '1px solid var(--card-border)', color: 'var(--foreground)' }}>
+                          {teacher.grade}
+                        </span>
+                      </td>
+                      <td>{new Date(teacher.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           {teacher.isNewToday && (

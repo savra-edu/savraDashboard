@@ -24,12 +24,16 @@ model Teacher {
   id                    String           @id @default(uuid())
   userId                String           @unique @map("user_id")
   schoolId              String           @map("school_id")
+  phone                 String?
+  grade                 String?
+  subjects              String?
   createdAt             DateTime         @default(now()) @map("created_at")
   user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   school                School           @relation(fields: [schoolId], references: [id])
   assessments           Assessment[]
   lessons               Lesson[]
   quizzes               Quiz[]
+  feedbacks             Feedback[]
 
   @@map("teachers")
 }
@@ -94,5 +98,19 @@ enum QuizStatus {
   saved
   published
   generated
+}
+
+model Feedback {
+  id            String               @id @default(uuid())
+  teacherId     String               @map("teacher_id")
+  promptKind    String               @default("manual") @map("prompt_kind")
+  rating        Int?
+  message       String?
+  createdAt     DateTime             @default(now()) @map("created_at")
+  artifactType  String?              @map("artifact_type")
+  artifactId    String?              @map("artifact_id")
+  teacher       Teacher              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("feedback")
 }
 

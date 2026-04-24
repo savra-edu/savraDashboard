@@ -24,19 +24,28 @@ export default function TeachersDirectory() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [sortValue, setSortValue] = useState('joined_desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [teacherArtifacts, setTeacherArtifacts] = useState<any[]>([]);
   const [loadingArtifacts, setLoadingArtifacts] = useState(false);
 
   useEffect(() => {
-    fetchTeachers(page, sortValue);
-  }, [page, sortValue]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const fetchTeachers = async (pageNum: number, sortMode: string) => {
+  useEffect(() => {
+    fetchTeachers(page, sortValue, debouncedSearch);
+  }, [page, sortValue, debouncedSearch]);
+
+  const fetchTeachers = async (pageNum: number, sortMode: string, search: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/teachers?page=${pageNum}&sort=${sortMode}`);
+      const res = await fetch(`/api/teachers?page=${pageNum}&sort=${sortMode}&search=${encodeURIComponent(search)}`);
       const data = await res.json();
       if (data.success) {
         setTeachers(data.data);
@@ -73,23 +82,51 @@ export default function TeachersDirectory() {
             <h1 className="page-title">Instructor Directory</h1>
             <p className="page-description">Global overview of all registered teachers and their platform artifacts.</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--card-bg)', padding: '0.5rem 1rem', borderRadius: '0.75rem', border: '1px solid var(--card-border)' }}>
-            <ArrowUpDown size={16} className="text-muted" />
-            <select 
-              value={sortValue} 
-              onChange={(e) => {
-                setSortValue(e.target.value);
-                setPage(1); // Reset page on sort branch shift
-              }}
-              style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--foreground)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}
-            >
-               <option value="joined_desc">Newest First</option>
-               <option value="joined_asc">Oldest First</option>
-               <option value="artifacts_desc">Most Artifacts Generated</option>
-               <option value="artifacts_asc">Least Artifacts Generated</option>
-               <option value="name_asc">Name (A-Z)</option>
-               <option value="name_desc">Name (Z-A)</option>
-            </select>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', width: '280px' }}>
+              <Users style={{ position: 'absolute', left: '12px', top: '10px', width: '16px', color: 'var(--muted)' }} />
+              <input 
+                type="text" 
+                placeholder="Search by instructor name..." 
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                style={{ 
+                  width: '100%', padding: '0.5rem 1rem 0.5rem 2.5rem', 
+                  borderRadius: '0.75rem', border: '1px solid var(--card-border)',
+                  background: 'var(--card-bg)', fontSize: '0.875rem', outline: 'none'
+                }} 
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  style={{ position: 'absolute', right: '10px', top: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--card-bg)', padding: '0.5rem 1rem', borderRadius: '0.75rem', border: '1px solid var(--card-border)' }}>
+              <ArrowUpDown size={16} className="text-muted" />
+              <select 
+                value={sortValue} 
+                onChange={(e) => {
+                  setSortValue(e.target.value);
+                  setPage(1); // Reset page on sort branch shift
+                }}
+                style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--foreground)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}
+              >
+                 <option value="joined_desc">Newest First</option>
+                 <option value="joined_asc">Oldest First</option>
+                 <option value="artifacts_desc">Most Artifacts Generated</option>
+                 <option value="artifacts_asc">Least Artifacts Generated</option>
+                 <option value="name_asc">Name (A-Z)</option>
+                 <option value="name_desc">Name (Z-A)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -104,14 +141,16 @@ export default function TeachersDirectory() {
                   <thead>
                     <tr>
                       <th>Teacher</th>
+                      <th>Phone</th>
                       <th>School</th>
+                      <th>Grade</th>
                       <th>Joined</th>
-                      <th>Artifacts</th>
+                      <th>Last Active</th>
                       <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {teachers.map((teacher) => (
+                    {teachers.map((teacher: any) => (
                       <tr key={teacher.id}>
                         <td>
                           <div className="teacher-info">
@@ -124,10 +163,23 @@ export default function TeachersDirectory() {
                             </div>
                           </div>
                         </td>
+                        <td className="text-muted">{teacher.phoneNumber || '—'}</td>
                         <td>{teacher.schoolName}</td>
-                        <td>{new Date(teacher.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                         <td>
-                          <span className="badge badge-primary">{teacher.artifactCounts.total} items</span>
+                          <span className="badge" style={{ background: '#f8fafc', border: '1px solid var(--card-border)', color: 'var(--foreground)' }}>
+                            {teacher.grade}
+                          </span>
+                        </td>
+                        <td>{new Date(teacher.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                             <span style={{ fontWeight: 500 }}>{teacher.lastActiveAt ? new Date(teacher.lastActiveAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never'}</span>
+                             {teacher.lastActiveAt && (
+                               <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                                 {Math.floor((new Date().getTime() - new Date(teacher.lastActiveAt).getTime()) / (1000 * 3600 * 24))}d ago
+                               </span>
+                             )}
+                          </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <button className="action-btn" onClick={() => showArtifacts(teacher)}>
