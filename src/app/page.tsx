@@ -21,6 +21,7 @@ interface Stats {
     assessments: number;
     worksheets?: number;
     questionPapers?: number;
+    presentations?: number;
   };
   chartData: Array<{ date: string; count: number }>;
 }
@@ -279,6 +280,12 @@ export default function Dashboard() {
                 value={stats.artifactsBreakdown.questionPapers ?? 0}
                 total={stats.periodArtifacts}
                 color="#0ea5e9"
+              />
+              <ProgressBar
+                label="Presentations"
+                value={stats.artifactsBreakdown.presentations ?? 0}
+                total={stats.periodArtifacts}
+                color="#f59e0b"
               />
             </div>
           </div>

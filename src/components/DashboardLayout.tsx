@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   Users, BookOpen, GraduationCap, LayoutDashboard, 
-  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, Trophy
+  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, Trophy, CreditCard
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -108,9 +108,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Activity />
             <span>Weekly Active Users</span>
           </Link>
-          <Link href="/inactive" className={`nav-item ${pathname === '/inactive' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
-            <Users />
-            <span>Inactive Users</span>
+          <Link href="/convertible" className={`nav-item ${pathname === '/convertible' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <Sparkles />
+            <span>Convertible Users</span>
           </Link>
           <Link href="/feedback" className={`nav-item ${pathname === '/feedback' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <MessageSquare />
@@ -119,6 +119,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <Link href="/teachers" className={`nav-item ${pathname === '/teachers' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Users />
             <span>Teachers Directory</span>
+          </Link>
+          <Link href="/subscriptions" className={`nav-item ${pathname === '/subscriptions' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <CreditCard />
+            <span>Subscriptions</span>
           </Link>
           <Link href="/schools" className={`nav-item ${pathname === '/schools' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <GraduationCap />

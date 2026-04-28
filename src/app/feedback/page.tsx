@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { MessageSquare, Star, User, Calendar, ChevronLeft, ChevronRight, X, Phone, School, GraduationCap, Search } from 'lucide-react';
+import { 
+  MessageSquare, Star, User, Calendar, ChevronLeft, ChevronRight, X, Phone, School, GraduationCap, Search,
+  ChevronDown, ChevronUp, BarChart3 
+} from 'lucide-react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from 'recharts';
 
 interface FeedbackItem {
   id: string;
@@ -31,6 +37,41 @@ export default function FeedbackPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [distribution, setDistribution] = useState<any>(null);
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
+
+  // Individual usage states
+  const [expandedFeedbackId, setExpandedFeedbackId] = useState<string | null>(null);
+  const [usageData, setUsageData] = useState<Record<string, {
+    breakdown: { worksheets: number; questionPapers: number; quizzes: number; lessons: number; presentations: number; total: number };
+    chartData: Array<{ date: string; count: number }>;
+  }>>({});
+  const [loadingUsage, setLoadingUsage] = useState<string | null>(null);
+  const [graphScopes, setGraphScopes] = useState<Record<string, '30d' | 'ytd'>>({});
+
+  const fetchUsageData = async (feedbackId: string, teacherId: string) => {
+    if (expandedFeedbackId === feedbackId) {
+      setExpandedFeedbackId(null);
+      return;
+    }
+
+    setExpandedFeedbackId(feedbackId);
+
+    if (usageData[teacherId]) {
+      return;
+    }
+    
+    setLoadingUsage(feedbackId);
+    try {
+      const res = await fetch(`/api/subscriptions/usage?teacherId=${teacherId}`);
+      const data = await res.json();
+      if (data.success) {
+        setUsageData(prev => ({ ...prev, [teacherId]: data.data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch usage data:', error);
+    } finally {
+      setLoadingUsage(null);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -182,30 +223,184 @@ export default function FeedbackPage() {
                 </thead>
                 <tbody>
                   {feedback.map((f) => (
-                    <tr key={f.id}>
-                      <td>
-                        <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{f.teacher.name}</div>
-                        <div className="text-muted" style={{ fontSize: '0.8rem' }}>{f.teacher.schoolName}</div>
-                      </td>
-                      <td>{renderStars(f.rating || 0)}</td>
-                      <td>
-                        <div style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.875rem' }}>
-                          {f.message || <span className="text-muted italic">No message provided</span>}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="badge" style={{ textTransform: 'capitalize' }}>{f.promptKind}</span>
-                      </td>
-                      <td className="text-muted" style={{ fontSize: '0.875rem' }}>
-                        {new Date(f.createdAt).toLocaleDateString()}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="action-btn" onClick={() => setSelectedFeedback(f)}>
-                          <User size={14} />
-                          User Details
-                        </button>
-                      </td>
-                    </tr>
+                    <Fragment key={f.id}>
+                      <tr>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{f.teacher.name}</div>
+                          <div className="text-muted" style={{ fontSize: '0.8rem' }}>{f.teacher.schoolName}</div>
+                        </td>
+                        <td>{renderStars(f.rating || 0)}</td>
+                        <td>
+                          <div style={{ maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.875rem' }}>
+                            {f.message || <span className="text-muted italic">No comment provided</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="badge" style={{ textTransform: 'capitalize' }}>{f.promptKind}</span>
+                        </td>
+                        <td className="text-muted" style={{ fontSize: '0.875rem' }}>
+                          {new Date(f.createdAt).toLocaleDateString()}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button 
+                              onClick={() => fetchUsageData(f.id, f.teacher.id)} 
+                              className="action-btn"
+                              style={{ 
+                                borderColor: expandedFeedbackId === f.id ? 'var(--primary)' : 'var(--card-border)',
+                                fontSize: '0.75rem',
+                                padding: '0.375rem 0.5rem'
+                              }}
+                            >
+                              {loadingUsage === f.id ? 'Loading...' : 'Usage'}
+                              {expandedFeedbackId === f.id ? <ChevronUp size={14} style={{ marginLeft: '4px' }} /> : <ChevronDown size={14} style={{ marginLeft: '4px' }} />}
+                            </button>
+                            <button className="action-btn" onClick={() => setSelectedFeedback(f)} style={{ padding: '0.375rem 0.5rem', fontSize: '0.75rem' }}>
+                              <User size={14} />
+                              Details
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {expandedFeedbackId === f.id && (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '1.5rem', background: '#f8fafc', borderBottom: '1px solid var(--card-border)' }}>
+                            {usageData[f.teacher.id] ? (
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                {/* Usage Breakdown */}
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <BarChart3 size={16} style={{ color: 'var(--primary)' }} />
+                                    Content Generation Breakdown
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {[
+                                      { label: 'Worksheets', value: usageData[f.teacher.id].breakdown.worksheets, color: 'var(--primary)' },
+                                      { label: 'Quizzes', value: usageData[f.teacher.id].breakdown.quizzes, color: '#8b5cf6' },
+                                      { label: 'Question Papers', value: usageData[f.teacher.id].breakdown.questionPapers, color: '#0ea5e9' },
+                                      { label: 'Lesson Plans', value: usageData[f.teacher.id].breakdown.lessons, color: 'var(--success)' },
+                                      { label: 'Presentations', value: usageData[f.teacher.id].breakdown.presentations, color: '#f59e0b' },
+                                    ].map((item, i) => {
+                                      const total = usageData[f.teacher.id].breakdown.total;
+                                      const pct = total > 0 ? (item.value / total) * 100 : 0;
+                                      return (
+                                        <div key={i}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', marginBottom: '0.25rem' }}>
+                                            <span style={{ fontWeight: 500 }}>{item.label}</span>
+                                            <span style={{ fontWeight: 600 }}>{item.value} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({pct.toFixed(0)}%)</span></span>
+                                          </div>
+                                          <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${pct}%`, height: '100%', background: item.color, borderRadius: '3px', transition: 'width 0.5s ease-out' }}></div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Monthly Graph */}
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <Calendar size={16} style={{ color: 'var(--primary)' }} />
+                                      {(graphScopes[f.teacher.id] || '30d') === '30d' ? '30-Day Generation Velocity' : 'Year-to-Date Velocity'}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.25rem', background: '#e2e8f0', padding: '2px', borderRadius: '4px' }}>
+                                      <button 
+                                        onClick={() => setGraphScopes(prev => ({ ...prev, [f.teacher.id]: '30d' }))}
+                                        style={{ 
+                                          border: 'none', 
+                                          background: (graphScopes[f.teacher.id] || '30d') === '30d' ? 'white' : 'transparent', 
+                                          fontSize: '0.7rem', 
+                                          padding: '2px 6px', 
+                                          borderRadius: '3px', 
+                                          fontWeight: 600, 
+                                          cursor: 'pointer',
+                                          boxShadow: (graphScopes[f.teacher.id] || '30d') === '30d' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                                        }}
+                                      >
+                                        30D
+                                      </button>
+                                      <button 
+                                        onClick={() => setGraphScopes(prev => ({ ...prev, [f.teacher.id]: 'ytd' }))}
+                                        style={{ 
+                                          border: 'none', 
+                                          background: graphScopes[f.teacher.id] === 'ytd' ? 'white' : 'transparent', 
+                                          fontSize: '0.7rem', 
+                                          padding: '2px 6px', 
+                                          borderRadius: '3px', 
+                                          fontWeight: 600, 
+                                          cursor: 'pointer',
+                                          boxShadow: graphScopes[f.teacher.id] === 'ytd' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                                        }}
+                                      >
+                                        YTD
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div style={{ height: '160px', width: '100%' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <AreaChart 
+                                        data={(() => {
+                                          const fullData = usageData[f.teacher.id].chartData;
+                                          if ((graphScopes[f.teacher.id] || '30d') === '30d') {
+                                            return fullData.slice(-30);
+                                          } else {
+                                            const ytdStart = new Date(new Date().getFullYear(), 0, 1);
+                                            return fullData.filter((item: any) => new Date(item.date) >= ytdStart);
+                                          }
+                                        })()} 
+                                        margin={{ top: 5, right: 5, left: -25, bottom: 0 }}
+                                      >
+                                        <defs>
+                                          <linearGradient id={`usageColor-f-${f.teacher.id}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2}/>
+                                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                                          </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                        <XAxis 
+                                          dataKey="date" 
+                                          axisLine={false} 
+                                          tickLine={false} 
+                                          tick={{ fill: 'var(--muted)', fontSize: 10 }} 
+                                          tickFormatter={(str) => {
+                                            const d = new Date(str);
+                                            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                          }}
+                                          minTickGap={25}
+                                        />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 10 }} allowDecimals={false} />
+                                        <Tooltip 
+                                          content={({ active, payload }: any) => {
+                                            if (active && payload && payload.length) {
+                                              return (
+                                                <div style={{ background: 'white', border: '1px solid var(--card-border)', padding: '0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                                  <div style={{ fontWeight: 600 }}>{new Date(payload[0].payload.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                                  <div style={{ color: 'var(--primary)' }}>{payload[0].value} Created</div>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          }}
+                                        />
+                                        <Area type="monotone" dataKey="count" stroke="var(--primary)" strokeWidth={2} fillOpacity={1} fill={`url(#usageColor-f-${f.teacher.id})`} />
+                                      </AreaChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.875rem', padding: '1rem' }}>
+                                <div className="spinner" style={{ margin: '0 auto 0.5rem auto', width: '20px', height: '20px' }}></div>
+                                Loading usage statistics...
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
