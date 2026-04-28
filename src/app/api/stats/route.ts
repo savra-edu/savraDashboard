@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       periodQuizzes,
       periodAssessmentsWorksheet,
       periodAssessmentsQuestionPaper,
+      periodPresentations,
     ] = await Promise.all([
       prisma.teacher.count({ where: { createdAt: { gte: chartStartDate } } }),
       prisma.teacher.count({ where: { createdAt: { gte: todayStart } } }),
@@ -40,6 +41,13 @@ export async function GET(request: Request) {
           SELECT COUNT(*) as count
           FROM "assessments"
           WHERE "created_at" >= ${chartStartDate} AND "is_worksheet" = false
+        `
+        .then((rows) => Number(rows?.[0]?.count ?? 0)),
+      prisma
+        .$queryRaw<Array<{ count: bigint | number }>>`
+          SELECT COUNT(*) as count
+          FROM "presentations"
+          WHERE "created_at" >= ${chartStartDate}
         `
         .then((rows) => Number(rows?.[0]?.count ?? 0)),
     ]);
@@ -84,7 +92,8 @@ export async function GET(request: Request) {
           periodLessons +
           periodQuizzes +
           periodAssessmentsWorksheet +
-          periodAssessmentsQuestionPaper,
+          periodAssessmentsQuestionPaper +
+          periodPresentations,
         artifactsBreakdown: {
           lessons: periodLessons,
           quizzes: periodQuizzes,
@@ -92,6 +101,7 @@ export async function GET(request: Request) {
             periodAssessmentsWorksheet + periodAssessmentsQuestionPaper,
           worksheets: periodAssessmentsWorksheet,
           questionPapers: periodAssessmentsQuestionPaper,
+          presentations: periodPresentations,
         },
         chartData
       }

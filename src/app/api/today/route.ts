@@ -10,11 +10,15 @@ export async function GET() {
     const [
       lessonsToday,
       quizzesToday,
+      presentationsToday,
       assessmentsWorksheetToday,
       assessmentsQuestionPaperToday,
     ] = await Promise.all([
       prisma.lesson.findMany({ where: { createdAt: { gte: todayStart } }, select: { teacherId: true } }),
       prisma.quiz.findMany({ where: { createdAt: { gte: todayStart } }, select: { teacherId: true } }),
+      prisma.$queryRaw<Array<{ teacher_id: string }>>`
+        SELECT "teacher_id" FROM "presentations" WHERE "created_at" >= ${todayStart}
+      `.then((rows: Array<{ teacher_id: string }>) => rows.map((r: { teacher_id: string }) => ({ teacherId: r.teacher_id }))),
       prisma.$queryRaw<Array<{ teacher_id: string }>>`
         SELECT "teacher_id"
         FROM "assessments"
@@ -31,6 +35,7 @@ export async function GET() {
 
     lessonsToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
     quizzesToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
+    presentationsToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
     assessmentsWorksheetToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
     assessmentsQuestionPaperToday.forEach((x: { teacherId: string }) => activeSet.add(x.teacherId));
 
@@ -38,7 +43,7 @@ export async function GET() {
       assessmentsWorksheetToday.length + assessmentsQuestionPaperToday.length;
 
     const totalArtifactsToday =
-      lessonsToday.length + quizzesToday.length + assessmentsTodayTotal;
+      lessonsToday.length + quizzesToday.length + presentationsToday.length + assessmentsTodayTotal;
 
     // Find ALL teachers that signed up today OR actively generated something today
     const rawTeachers = await prisma.teacher.findMany({
@@ -90,6 +95,7 @@ export async function GET() {
         totalArtifactsToday,
         lessonsToday: lessonsToday.length,
         quizzesToday: quizzesToday.length,
+        presentationsToday: presentationsToday.length,
         assessmentsToday: assessmentsTodayTotal,
         assessmentsWorksheetToday: assessmentsWorksheetToday.length,
         assessmentsQuestionPaperToday: assessmentsQuestionPaperToday.length,
