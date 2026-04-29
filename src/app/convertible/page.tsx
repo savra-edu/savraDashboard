@@ -184,6 +184,14 @@ export default function ConvertibleLeadsPage() {
                     <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{lead.metrics.lessons}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Quizzes</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{lead.metrics.quizzes}</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Question Papers</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{lead.metrics.questionPapers}</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Presentations</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{lead.metrics.presentations}</div>
                   </div>
