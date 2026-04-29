@@ -4,12 +4,37 @@ import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-  Users, BookOpen, GraduationCap, LayoutDashboard, 
-  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, Trophy, CreditCard
+  Users, GraduationCap, LayoutDashboard, 
+  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, CreditCard, Bot,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
+
+const SIDEBAR_COLLAPSED_KEY = 'savra_sidebar_collapsed';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
   
   // Security Layer Check
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -80,64 +105,96 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="dashboard-layout">
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarCollapsed ? ' sidebar--collapsed' : ''}`}>
         <div className="sidebar-header">
-          <div className="brand-logo">S</div>
-          <div className="brand-name">Savra</div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="dashboard-sidebar-nav"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+          {!sidebarCollapsed && (
+            <>
+              <div className="brand-logo">S</div>
+              <div className="brand-name">Savra</div>
+            </>
+          )}
+          {sidebarCollapsed && <div className="brand-logo" title="Savra">S</div>}
         </div>
         
-        <nav className="sidebar-nav">
+        <nav id="dashboard-sidebar-nav" className="sidebar-nav">
           <div className="nav-label">Main Menu</div>
-          <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/" title="Dashboard" className={`nav-item ${pathname === '/' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <LayoutDashboard />
             <span>Dashboard</span>
           </Link>
-          <Link href="/today" className={`nav-item ${pathname === '/today' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/agent" title="AI Data Agent" className={`nav-item ${pathname === '/agent' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <Bot />
+            <span>AI Data Agent</span>
+          </Link>
+          <Link href="/today" title="Today's Pulse" className={`nav-item ${pathname === '/today' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Sparkles />
             <span>Today's Pulse</span>
           </Link>
-          <Link href="/retention" className={`nav-item ${pathname === '/retention' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/retention" title="Retention & Usage" className={`nav-item ${pathname === '/retention' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Activity />
             <span>Retention & Usage</span>
           </Link>
-          <Link href="/dau" className={`nav-item ${pathname === '/dau' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/dau" title="Daily Active Users" className={`nav-item ${pathname === '/dau' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Activity />
             <span>Daily Active Users</span>
           </Link>
-          <Link href="/wau" className={`nav-item ${pathname === '/wau' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/wau" title="Weekly Active Users" className={`nav-item ${pathname === '/wau' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Activity />
             <span>Weekly Active Users</span>
           </Link>
-          <Link href="/convertible" className={`nav-item ${pathname === '/convertible' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/convertible" title="Convertible Users" className={`nav-item ${pathname === '/convertible' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Sparkles />
             <span>Convertible Users</span>
           </Link>
-          <Link href="/feedback" className={`nav-item ${pathname === '/feedback' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/feedback" title="Feedback" className={`nav-item ${pathname === '/feedback' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <MessageSquare />
             <span>Feedback</span>
           </Link>
-          <Link href="/teachers" className={`nav-item ${pathname === '/teachers' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/teachers" title="Teachers Directory" className={`nav-item ${pathname === '/teachers' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Users />
             <span>Teachers Directory</span>
           </Link>
-          <Link href="/subscriptions" className={`nav-item ${pathname === '/subscriptions' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/subscriptions" title="Subscriptions" className={`nav-item ${pathname === '/subscriptions' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <CreditCard />
             <span>Subscriptions</span>
           </Link>
-          <Link href="/schools" className={`nav-item ${pathname === '/schools' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+          <Link href="/schools" title="Schools" className={`nav-item ${pathname === '/schools' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <GraduationCap />
             <span>Schools</span>
           </Link>
           
           <div className="nav-label" style={{ marginTop: '1.5rem' }}>Preferences</div>
-          <div className="nav-item">
+          <div className="nav-item" title="Settings">
             <Settings />
             <span>Settings</span>
           </div>
         </nav>
 
         <div className="sidebar-footer">
-          <div className="nav-item" onClick={handleSignOut} style={{ padding: '0.5rem', color: 'var(--danger)', cursor: 'pointer' }}>
+          <div
+            className="nav-item"
+            role="button"
+            tabIndex={0}
+            onClick={handleSignOut}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSignOut();
+              }
+            }}
+            title="Sign out"
+            style={{ padding: '0.5rem', color: 'var(--danger)', cursor: 'pointer' }}
+          >
             <LogOut />
             <span>Sign Out</span>
           </div>

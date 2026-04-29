@@ -1,0 +1,639 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String?          @map("password_hash")
+  plan            UserPlan         @default(free)
+  planBillingCycle UserPlanBillingCycle @default(monthly) @map("plan_billing_cycle")
+  activatedOn     DateTime?        @map("activated_on")
+  role            Role
+  name            String
+  avatarUrl       String?          @map("avatar_url")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  googleId        String?          @unique @map("google_id")
+  admin           Admin?
+  aiConversations AIConversation[]
+  files           File[]
+  student         Student?
+  teacher         Teacher?
+  passwordRecoveryTokens PasswordRecoveryToken[]
+
+  @@map("users")
+}
+
+model PasswordRecoveryToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("password_recovery_tokens")
+}
+
+model School {
+  id        String    @id @default(uuid())
+  name      String
+  code      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  admins    Admin[]
+  classes   Class[]
+  teachers  Teacher[]
+
+  @@map("schools")
+}
+
+model Class {
+  id            String         @id @default(uuid())
+  schoolId      String         @map("school_id")
+  grade         Int
+  section       String         @db.VarChar(1)
+  name          String
+  createdAt     DateTime       @default(now()) @map("created_at")
+  announcements Announcement[]
+  assessments   Assessment[]
+  presentations Presentation[]
+  school        School         @relation(fields: [schoolId], references: [id])
+  lessons       Lesson[]
+  quizzes       Quiz[]
+  students      Student[]
+  teachers      TeacherClass[]
+
+  @@unique([schoolId, grade, section])
+  @@map("classes")
+}
+
+model Subject {
+  id          String           @id @default(uuid())
+  name        String
+  code        String           @unique
+  assessments Assessment[]
+  chapters    Chapter[]
+  lessons     Lesson[]
+  presentations Presentation[]
+  quizzes     Quiz[]
+  students    StudentSubject[]
+  teachers    TeacherSubject[]
+
+  @@map("subjects")
+}
+
+model Chapter {
+  id                 String              @id @default(uuid())
+  subjectId          String              @map("subject_id")
+  name               String
+  orderIndex         Int                 @map("order_index")
+  grade              Int?
+  assessmentChapters AssessmentChapter[]
+  presentationChapters PresentationChapter[]
+  subject            Subject             @relation(fields: [subjectId], references: [id])
+  lessonChapters     LessonChapter[]
+  quizChapters       QuizChapter[]
+
+  @@map("chapters")
+}
+
+model Teacher {
+  id                    String           @id @default(uuid())
+  userId                String           @unique @map("user_id")
+  schoolId              String           @map("school_id")
+  location              String?
+  teacherRole           String?          @map("teacher_role")
+  onboardingCompleted   Boolean          @default(false) @map("onboarding_completed")
+  onboardingCompletedAt DateTime?        @map("onboarding_completed_at")
+  feedbackPrompt2ShownAt DateTime?       @map("feedback_prompt_2_shown_at")
+  feedbackPrompt5ShownAt DateTime?       @map("feedback_prompt_5_shown_at")
+  feedbackPrompt7ShownAt DateTime?       @map("feedback_prompt_7_shown_at")
+  googleProfileGateShownAt DateTime?     @map("google_profile_gate_shown_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  phone                 String?          @map("phone")
+  phoneVerified         Boolean?         @map("phone_verified")
+  announcements         Announcement[]
+  assessments           Assessment[]
+  generationJobs        GenerationJob[]
+  lessons               Lesson[]
+  presentations         Presentation[]
+  quizzes               Quiz[]
+  feedback              Feedback[]
+  classes               TeacherClass[]
+  subjects              TeacherSubject[]
+  school                School           @relation(fields: [schoolId], references: [id])
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teachers")
+}
+
+model Feedback {
+  id         String              @id @default(uuid())
+  teacherId  String              @map("teacher_id")
+  promptKind FeedbackPromptKind  @default(manual) @map("prompt_kind")
+  artifactType GenerationArtifactType? @map("artifact_type")
+  artifactId   String?                 @map("artifact_id")
+  rating     Int?
+  message    String?
+  createdAt  DateTime            @default(now()) @map("created_at")
+  teacher    Teacher             @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId, createdAt])
+  @@index([artifactType, artifactId])
+  @@map("feedback")
+}
+
+model GenerationJob {
+  id           String                 @id @default(uuid())
+  teacherId    String                 @map("teacher_id")
+  artifactType GenerationArtifactType @map("artifact_type")
+  artifactId   String                 @map("artifact_id")
+  status       GenerationJobStatus    @default(queued)
+  stage        GenerationJobStage     @default(queued)
+  progress     Int                    @default(0)
+  payload      Json?
+  errorMessage String?                @map("error_message")
+  startedAt    DateTime?              @map("started_at")
+  completedAt  DateTime?              @map("completed_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  teacher      Teacher                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([artifactType, artifactId])
+  @@map("generation_jobs")
+}
+
+model Student {
+  id                String             @id @default(uuid())
+  userId            String             @unique @map("user_id")
+  classId           String?            @map("class_id")
+  rollNumber        String?            @map("roll_number")
+  totalPoints       Int                @default(0) @map("total_points")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  announcementReads AnnouncementRead[]
+  quizAttempts      QuizAttempt[]
+  subjects          StudentSubject[]
+  class             Class?             @relation(fields: [classId], references: [id])
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("students")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  schoolId  String   @map("school_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  school    School   @relation(fields: [schoolId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
+model TeacherSubject {
+  teacherId String  @map("teacher_id")
+  subjectId String  @map("subject_id")
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, subjectId])
+  @@map("teacher_subjects")
+}
+
+model TeacherClass {
+  teacherId String  @map("teacher_id")
+  classId   String  @map("class_id")
+  class     Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, classId])
+  @@map("teacher_classes")
+}
+
+model StudentSubject {
+  studentId String  @map("student_id")
+  subjectId String  @map("subject_id")
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, subjectId])
+  @@map("student_subjects")
+}
+
+model Lesson {
+  id               String          @id @default(uuid())
+  teacherId        String          @map("teacher_id")
+  classId          String          @map("class_id")
+  subjectId        String          @map("subject_id")
+  title            String
+  objective        String?
+  duration         Int?
+  status           LessonStatus    @default(draft)
+  content          String?
+  referenceFileUrl String?         @map("reference_file_url")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  startDate        DateTime?       @map("start_date")
+  endDate          DateTime?       @map("end_date")
+  topic            String?
+  numberOfPeriods  Int?            @map("number_of_periods")
+  shareToken       String?         @unique @map("share_token")
+  hiddenColumns    Json?           @map("hidden_columns")
+  chapters         LessonChapter[]
+  periods          LessonPeriod[]
+  class            Class           @relation(fields: [classId], references: [id])
+  subject          Subject         @relation(fields: [subjectId], references: [id])
+  teacher          Teacher         @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, status, createdAt])
+  @@map("lessons")
+}
+
+model Presentation {
+  id              String              @id @default(uuid())
+  teacherId        String              @map("teacher_id")
+  classId          String              @map("class_id")
+  subjectId        String              @map("subject_id")
+  title            String
+  topic            String?
+  numberOfSlides   Int                 @map("number_of_slides")
+  styleKey         String              @map("style_key")
+  themeKey         String              @map("theme_key")
+  language         String              @default("en")
+  status           PresentationStatus  @default(draft)
+  outline          Json?               @map("outline")
+  content          Json?               @map("content")
+  referenceFileUrl String?             @map("reference_file_url")
+  shareToken       String?             @unique @map("share_token")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  chapters         PresentationChapter[]
+  class            Class               @relation(fields: [classId], references: [id])
+  subject          Subject             @relation(fields: [subjectId], references: [id])
+  teacher          Teacher             @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, status, createdAt])
+  @@map("presentations")
+}
+
+model PresentationChapter {
+  presentationId String       @map("presentation_id")
+  chapterId      String       @map("chapter_id")
+  chapter        Chapter      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  @@id([presentationId, chapterId])
+  @@map("presentation_chapters")
+}
+
+model LessonChapter {
+  lessonId  String  @map("lesson_id")
+  chapterId String  @map("chapter_id")
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  lesson    Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([lessonId, chapterId])
+  @@map("lesson_chapters")
+}
+
+model LessonPeriod {
+  id                          String  @id @default(uuid())
+  lessonId                    String  @map("lesson_id")
+  periodNo                    Int     @map("period_no")
+  concept                     String?
+  learningOutcomes            String? @map("learning_outcomes")
+  teacherLearningProcess      String? @map("teacher_learning_process")
+  assessment                  String?
+  resources                   String?
+  centurySkillsValueEducation String? @map("century_skills_value_education")
+  realLifeApplication         String? @map("real_life_application")
+  reflection                  String?
+  lesson                      Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, periodNo])
+  @@map("lesson_periods")
+}
+
+model Quiz {
+  id               String          @id @default(uuid())
+  teacherId        String          @map("teacher_id")
+  classId          String          @map("class_id")
+  subjectId        String          @map("subject_id")
+  title            String
+  objective        String?
+  timeLimit        Int?            @map("time_limit")
+  difficultyLevel  DifficultyLevel @default(medium) @map("difficulty_level")
+  totalQuestions   Int             @map("total_questions")
+  totalMarks       Int             @map("total_marks")
+  status           QuizStatus      @default(draft)
+  dueDate          DateTime?       @map("due_date")
+  isOptional       Boolean         @default(false) @map("is_optional")
+  referenceFileUrl String?         @map("reference_file_url")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  shareToken       String?         @unique @map("share_token")
+  questions        Question[]
+  attempts         QuizAttempt[]
+  chapters         QuizChapter[]
+  class            Class           @relation(fields: [classId], references: [id])
+  subject          Subject         @relation(fields: [subjectId], references: [id])
+  teacher          Teacher         @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, status, createdAt])
+  @@map("quizzes")
+}
+
+model QuizChapter {
+  quizId    String  @map("quiz_id")
+  chapterId String  @map("chapter_id")
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  quiz      Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@id([quizId, chapterId])
+  @@map("quiz_chapters")
+}
+
+model Question {
+  id             String           @id @default(uuid())
+  quizId         String           @map("quiz_id")
+  questionText   String           @map("question_text")
+  marks          Int              @default(1)
+  orderIndex     Int              @map("order_index")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  questionType   QuestionType     @default(mcq) @map("question_type")
+  options        QuestionOption[]
+  quiz           Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentAnswers StudentAnswer[]
+
+  @@map("questions")
+}
+
+model QuestionOption {
+  id             String          @id @default(uuid())
+  questionId     String          @map("question_id")
+  optionLabel    String          @map("option_label") @db.VarChar(1)
+  optionText     String          @map("option_text")
+  isCorrect      Boolean         @default(false) @map("is_correct")
+  question       Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentAnswers StudentAnswer[]
+
+  @@map("question_options")
+}
+
+model QuizAttempt {
+  id          String          @id @default(uuid())
+  quizId      String          @map("quiz_id")
+  studentId   String          @map("student_id")
+  score       Int?
+  totalMarks  Int?            @map("total_marks")
+  percentage  Decimal?        @db.Decimal(5, 2)
+  timeTaken   Int?            @map("time_taken")
+  status      AttemptStatus   @default(in_progress)
+  startedAt   DateTime        @default(now()) @map("started_at")
+  submittedAt DateTime?       @map("submitted_at")
+  quiz        Quiz            @relation(fields: [quizId], references: [id])
+  student     Student         @relation(fields: [studentId], references: [id])
+  answers     StudentAnswer[]
+
+  @@map("quiz_attempts")
+}
+
+model StudentAnswer {
+  id               String          @id @default(uuid())
+  attemptId        String          @map("attempt_id")
+  questionId       String          @map("question_id")
+  selectedOptionId String?         @map("selected_option_id")
+  answerText       String?         @map("answer_text")
+  isCorrect        Boolean?        @map("is_correct")
+  marksObtained    Int             @default(0) @map("marks_obtained")
+  attempt          QuizAttempt     @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question         Question        @relation(fields: [questionId], references: [id])
+  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+
+  @@map("student_answers")
+}
+
+model Assessment {
+  id               String                   @id @default(uuid())
+  teacherId        String                   @map("teacher_id")
+  classId          String                   @map("class_id")
+  subjectId        String                   @map("subject_id")
+  title            String
+  objective        String?
+  totalMarks       Int                      @map("total_marks")
+  difficultyLevel  DifficultyLevel          @default(medium) @map("difficulty_level")
+  status           QuizStatus               @default(draft)
+  isWorksheet      Boolean                  @default(false) @map("is_worksheet")
+  referenceBooks   String[]                 @map("reference_books")
+  referenceFileUrl String?                  @map("reference_file_url")
+  questionPaper    Json?                    @map("question_paper")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  shareToken       String?                  @unique @map("share_token")
+  chapters         AssessmentChapter[]
+  questionTypes    AssessmentQuestionType[]
+  class            Class                    @relation(fields: [classId], references: [id])
+  subject          Subject                  @relation(fields: [subjectId], references: [id])
+  teacher          Teacher                  @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, status, createdAt])
+  @@index([teacherId, isWorksheet, createdAt])
+  @@map("assessments")
+}
+
+model AssessmentChapter {
+  assessmentId String     @map("assessment_id")
+  chapterId    String     @map("chapter_id")
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  chapter      Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@id([assessmentId, chapterId])
+  @@map("assessment_chapters")
+}
+
+model AssessmentQuestionType {
+  id                String       @id @default(uuid())
+  assessmentId      String       @map("assessment_id")
+  numberOfQuestions Int          @map("number_of_questions")
+  marksPerQuestion  Int          @map("marks_per_question")
+  questionType      QuestionType @map("question_type")
+  assessment        Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("assessment_question_types")
+}
+
+model Announcement {
+  id            String             @id @default(uuid())
+  teacherId     String             @map("teacher_id")
+  classId       String             @map("class_id")
+  title         String
+  content       String
+  attachmentUrl String?            @map("attachment_url")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  reads         AnnouncementRead[]
+  class         Class              @relation(fields: [classId], references: [id])
+  teacher       Teacher            @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, createdAt])
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String       @id @default(uuid())
+  announcementId String       @map("announcement_id")
+  studentId      String       @map("student_id")
+  readAt         DateTime     @default(now()) @map("read_at")
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, studentId])
+  @@map("announcement_reads")
+}
+
+model File {
+  id           String   @id @default(uuid())
+  uploadedBy   String   @map("uploaded_by")
+  filename     String
+  originalName String   @map("original_name")
+  mimeType     String?  @map("mime_type")
+  fileSize     Int?     @map("file_size")
+  fileUrl      String   @map("file_url")
+  publicId     String?  @map("public_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [uploadedBy], references: [id])
+
+  @@map("files")
+}
+
+model AIConversation {
+  id        String      @id @default(uuid())
+  userId    String      @map("user_id")
+  title     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AIMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String         @map("conversation_id")
+  role           String
+  content        String
+  fileUrl        String?        @map("file_url")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+enum Role {
+  teacher
+  student
+  admin
+}
+
+enum UserPlan {
+  free
+  pro
+  max
+}
+
+enum UserPlanBillingCycle {
+  monthly
+  annual
+}
+
+enum LessonStatus {
+  draft
+  saved
+  published
+  generated
+}
+
+enum QuizStatus {
+  draft
+  saved
+  published
+  generated
+}
+
+enum DifficultyLevel {
+  easy
+  medium
+  hard
+}
+
+enum QuestionType {
+  mcq
+  very_short_answer
+  short_answer
+  long_answer
+  case_study
+  assertion_reasoning
+  fill_in_blanks
+  match_the_following
+  reading_comprehension
+  unseen_passage
+  problem_solving
+  diagram_based
+}
+
+enum AttemptStatus {
+  in_progress
+  submitted
+  graded
+}
+
+enum GenerationArtifactType {
+  lesson
+  quiz
+  assessment
+  presentation
+}
+
+enum PresentationStatus {
+  draft
+  saved
+  published
+  generated
+}
+
+enum GenerationJobStatus {
+  queued
+  running
+  completed
+  failed
+}
+
+enum GenerationJobStage {
+  queued
+  preparing
+  generating
+  saving
+  completed
+  failed
+}
+
+enum FeedbackPromptKind {
+  after2
+  after5
+  after7
+  manual
+}
