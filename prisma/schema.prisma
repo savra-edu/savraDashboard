@@ -16,6 +16,7 @@ model User {
   avatarUrl       String?          @map("avatar_url")
   createdAt       DateTime         @default(now()) @map("created_at")
   teacher         Teacher?
+  conversionFeedback ConversionFeedback?
   
   @@map("users")
 }
@@ -110,5 +111,16 @@ model Feedback {
   teacher       Teacher              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@map("feedback")
+}
+
+model ConversionFeedback {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id")
+  feedback  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("conversion_feedback")
 }
 

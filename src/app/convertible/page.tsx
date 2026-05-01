@@ -28,6 +28,7 @@ interface ConvertibleLead {
     presentations: number;
   };
   conversionScore: number;
+  feedback: string;
 }
 
 export default function ConvertibleLeadsPage() {
@@ -42,10 +43,40 @@ export default function ConvertibleLeadsPage() {
   }>>({});
   const [loadingUsage, setLoadingUsage] = useState<string | null>(null);
   const [listPage, setListPage] = useState(1);
+  const [savingFeedback, setSavingFeedback] = useState<string | null>(null);
+  const [filterScore, setFilterScore] = useState<number | null>(null);
 
   const ITEMS_PER_PAGE = 10;
-  const listTotalPages = Math.max(1, Math.ceil(leads.length / ITEMS_PER_PAGE));
-  const paginatedLeads = leads.slice((listPage - 1) * ITEMS_PER_PAGE, listPage * ITEMS_PER_PAGE);
+  
+  const filteredLeads = filterScore === null 
+    ? leads 
+    : leads.filter(l => l.conversionScore >= filterScore);
+
+  const listTotalPages = Math.max(1, Math.ceil(filteredLeads.length / ITEMS_PER_PAGE));
+  const paginatedLeads = filteredLeads.slice((listPage - 1) * ITEMS_PER_PAGE, listPage * ITEMS_PER_PAGE);
+
+  const handleFeedbackChange = (leadId: string, value: string) => {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, feedback: value } : l));
+  };
+
+  const saveFeedback = async (lead: ConvertibleLead) => {
+    setSavingFeedback(lead.id);
+    try {
+      const res = await fetch('/api/convertible/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: lead.id, feedback: lead.feedback }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Optional: show a toast or temporary success state
+      }
+    } catch (err) {
+      console.error('Failed to save feedback:', err);
+    } finally {
+      setSavingFeedback(null);
+    }
+  };
 
   useEffect(() => {
     fetchLeads();
@@ -110,6 +141,34 @@ export default function ConvertibleLeadsPage() {
         <div className="card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem', background: '#f8fafc', border: '1px solid var(--card-border)', borderRadius: '0.75rem', fontSize: '0.875rem', color: 'var(--muted)' }}>
           <strong style={{ color: 'var(--foreground)' }}>Scoring Criteria:</strong> Conversion scores identify continuous high engagement. 
           Anything above <strong style={{ color: '#15803d' }}>110</strong> is highly convertible, above <strong style={{ color: 'var(--primary)' }}>80</strong> is primed for conversion, and above <strong style={{ color: '#b45309' }}>40</strong> shows growing adoption signals.
+        </div>
+
+        {/* Filtering Options */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', background: 'white', padding: '1rem 1.5rem', borderRadius: '0.75rem', border: '1px solid var(--card-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--muted)' }}>Filter by Score:</span>
+            <select 
+              value={filterScore === null ? '' : filterScore}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFilterScore(val === '' ? null : Number(val));
+                setListPage(1);
+              }}
+              style={{ 
+                padding: '0.5rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--card-border)',
+                background: '#f8fafc', fontSize: '0.875rem', fontWeight: 600, outline: 'none', cursor: 'pointer'
+              }}
+            >
+              <option value="">Show All Users</option>
+              <option value="200">Above 200 ({leads.filter(l => l.conversionScore >= 200).length})</option>
+              <option value="100">Above 100 ({leads.filter(l => l.conversionScore >= 100).length})</option>
+              <option value="70">Above 70 ({leads.filter(l => l.conversionScore >= 70).length})</option>
+              <option value="50">Above 50 ({leads.filter(l => l.conversionScore >= 50).length})</option>
+            </select>
+          </div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+            Showing <strong style={{ color: 'var(--foreground)' }}>{filteredLeads.length}</strong> identified leads
+          </div>
         </div>
 
         {loading ? (
@@ -197,7 +256,37 @@ export default function ConvertibleLeadsPage() {
                   </div>
                 </div>
 
-                {/* Collapsible Action Button */}
+                {/* Feedback Section */}
+                <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Conversion Feedback & Notes
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                    <textarea 
+                      value={lead.feedback}
+                      onChange={(e) => handleFeedbackChange(lead.id, e.target.value)}
+                      placeholder="Add notes about conversion status, phone calls, or feedback..."
+                      style={{ 
+                        flex: 1, minHeight: '80px', padding: '0.75rem', borderRadius: '0.5rem', 
+                        border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                        resize: 'vertical', fontFamily: 'inherit', outline: 'none'
+                      }}
+                    />
+                    <button 
+                      onClick={() => saveFeedback(lead)}
+                      disabled={savingFeedback === lead.id}
+                      style={{ 
+                        padding: '0.6rem 1rem', background: 'var(--primary)', color: 'white', 
+                        border: 'none', borderRadius: '0.5rem', fontSize: '0.825rem', fontWeight: 600, 
+                        cursor: 'pointer', transition: 'opacity 0.2s', opacity: savingFeedback === lead.id ? 0.7 : 1
+                      }}
+                    >
+                      {savingFeedback === lead.id ? 'Saving...' : 'Save Notes'}
+                    </button>
+                  </div>
+                </div>
+ 
+                 {/* Collapsible Action Button */}
                 <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                   <button 
                     className="action-btn"

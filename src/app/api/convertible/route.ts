@@ -45,10 +45,12 @@ export async function GET() {
           CAST(s.quizzes_count AS INTEGER) as "quizzes",
           CAST(s.lessons_count AS INTEGER) as "lessons",
           CAST(s.presentations_count AS INTEGER) as "presentations",
-          CAST(((s.distinct_days * 15) + (s.total_artifacts * 2)) AS INTEGER) as "conversionScore"
+          CAST(((s.distinct_days * 15) + (s.total_artifacts * 2)) AS INTEGER) as "conversionScore",
+          cf.feedback as "feedback"
       FROM users u
       JOIN teachers t ON t.user_id = u.id
       JOIN aggregated_signals s ON s.teacher_id = t.id
+      LEFT JOIN conversion_feedback cf ON cf.user_id = u.id
       WHERE u.plan = 'free' OR u.plan IS NULL
       ORDER BY "conversionScore" DESC
       LIMIT 100
@@ -61,6 +63,7 @@ export async function GET() {
       email: lead.userEmail,
       phone: lead.teacherPhone || '—',
       joinedAt: lead.joinedAt,
+      feedback: lead.feedback || '',
       metrics: {
         distinctDays: lead.distinctDays || 0,
         totalArtifacts: lead.totalArtifacts || 0,
