@@ -4,7 +4,8 @@ import { useEffect, useState, Fragment } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
   Users, FileText, ChevronLeft, ChevronRight, X, ArrowUpDown,
-  ChevronDown, ChevronUp, BarChart3, Calendar 
+  ChevronDown, ChevronUp, BarChart3, Calendar,
+  MessageSquare, ClipboardCheck, Clock, Star, ThumbsUp, ThumbsDown, CheckCircle
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -23,6 +24,26 @@ interface Teacher {
     total: number;
   };
 }
+
+const CONVERSION_STATUSES = [
+  'DNP',
+  'CALL_LATER',
+  'WRONG_NUMBER',
+  'INTERESTED',
+  'NOT_INTERESTED',
+  'CONVERTED',
+  'IRRELEVANT'
+];
+
+const CONVERSION_REASONS = [
+  'EXPENSIVE',
+  'CONTENT_QUALITY',
+  'NOT_RIGHT_NOW',
+  'NEED_MORE_TIME_TO_THINK',
+  'NEED_MORE_FEATURES',
+  'USING_OTHER_PLATFORM',
+  'OTHERS'
+];
 
 export default function TeachersDirectory() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -46,6 +67,7 @@ export default function TeachersDirectory() {
   const [diveUsage, setDiveUsage] = useState<any | null>(null);
   const [loadingDiveUsage, setLoadingDiveUsage] = useState(false);
   const [diveGraphScope, setDiveGraphScope] = useState<'30d' | 'ytd'>('30d');
+  const [savingDiveFeedback, setSavingDiveFeedback] = useState(false);
 
   const handleDeepDiveSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -60,7 +82,25 @@ export default function TeachersDirectory() {
       const res = await fetch(`/api/teachers/dive?email=${encodeURIComponent(diveEmail.trim())}`);
       const data = await res.json();
       if (data.success) {
-        setDiveResult(data.data);
+        let status = '';
+        let reason = '';
+        let notes = '';
+        
+        if (data.data.conversionFeedback?.feedback) {
+          const fb = data.data.conversionFeedback.feedback;
+          if (fb.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(fb);
+              status = parsed.status || '';
+              reason = parsed.reason || '';
+              notes = parsed.notes || '';
+            } catch (e) {}
+          } else {
+            notes = fb;
+          }
+        }
+        
+        setDiveResult({ ...data.data, status, reason, notes });
         // Fetch usage charts for this teacher if present
         if (data.data.teacher?.id) {
           fetchDiveUsage(data.data.teacher.id);
@@ -73,6 +113,68 @@ export default function TeachersDirectory() {
     } finally {
       setLoadingDive(false);
     }
+  };
+
+  const updateDiveField = async (field: string, value: any, autoSave = false) => {
+    if (!diveResult) return;
+    
+    const updated = { ...diveResult, [field]: value };
+    setDiveResult(updated);
+    
+    if (autoSave) {
+      saveDiveFeedback(updated);
+    }
+  };
+
+  const saveDiveFeedback = async (result: any) => {
+    if (!result.user?.id) return;
+    setSavingDiveFeedback(true);
+    
+    const feedbackStr = JSON.stringify({
+      status: result.status || '',
+      reason: result.reason || '',
+      notes: result.notes || ''
+    });
+
+    try {
+      const res = await fetch('/api/convertible/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: result.user.id, feedback: feedbackStr }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Update the original feedback string so dirty check works
+        setDiveResult(prev => ({
+          ...prev,
+          conversionFeedback: {
+            ...(prev?.conversionFeedback || {}),
+            feedback: feedbackStr
+          }
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to save dive feedback:', err);
+    } finally {
+      setSavingDiveFeedback(false);
+    }
+  };
+
+  const isDiveNotesDirty = () => {
+    if (!diveResult) return false;
+    let originalNotes = '';
+    const fb = diveResult.conversionFeedback?.feedback;
+    if (fb) {
+      if (fb.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(fb);
+          originalNotes = parsed.notes || '';
+        } catch (e) {}
+      } else {
+        originalNotes = fb;
+      }
+    }
+    return diveResult.notes !== originalNotes;
   };
 
   const fetchDiveUsage = async (teacherId: string) => {
@@ -506,6 +608,14 @@ export default function TeachersDirectory() {
                         <span style={{ color: 'var(--muted)' }}>Taught Grades:</span>
                         <span style={{ fontWeight: 600 }}>{diveResult.teacher?.grade || 'N/A'}</span>
                       </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--muted)' }}>Taught Subjects:</span>
+                        <span style={{ fontWeight: 600 }}>{diveResult.teacher?.subject || 'N/A'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--muted)' }}>Phone Number:</span>
+                        <span style={{ fontWeight: 600 }}>{diveResult.teacher?.phone || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -688,6 +798,133 @@ export default function TeachersDirectory() {
                     </div>
                   </div>
                 )}
+
+                {/* 3. Sales & Product Feedback Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                  
+                  {/* Sales Conversion Context */}
+                  <div className="card" style={{ padding: '2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                      <ClipboardCheck size={20} style={{ color: '#15803d' }} />
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0 }}>Sales Call Context</h3>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.4rem' }}>CALL STATUS</label>
+                          <select 
+                            value={diveResult.status}
+                            onChange={(e) => updateDiveField('status', e.target.value, true)}
+                            style={{ 
+                              width: '100%', padding: '0.6rem', borderRadius: '0.5rem', 
+                              border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                              fontWeight: 500, outline: 'none', cursor: 'pointer'
+                            }}
+                          >
+                            <option value="">Select Status</option>
+                            {CONVERSION_STATUSES.map(status => (
+                              <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {diveResult.status && diveResult.status !== 'CONVERTED' && (
+                          <div style={{ flex: '1', minWidth: '200px' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.4rem' }}>REASON</label>
+                            <select 
+                              value={diveResult.reason}
+                              onChange={(e) => updateDiveField('reason', e.target.value, true)}
+                              style={{ 
+                                width: '100%', padding: '0.6rem', borderRadius: '0.5rem', 
+                                border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                                fontWeight: 500, outline: 'none', cursor: 'pointer'
+                              }}
+                            >
+                              <option value="">Select Reason</option>
+                              {CONVERSION_REASONS.map(reason => (
+                                <option key={reason} value={reason}>{reason.replace(/_/g, ' ')}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.4rem' }}>SALES REPRESENTATIVE NOTES</label>
+                          <textarea 
+                            value={diveResult.notes}
+                            onChange={(e) => updateDiveField('notes', e.target.value)}
+                            placeholder="Add details about the call, teacher's pain points, or follow-up items..."
+                            style={{ 
+                              width: '100%', minHeight: '100px', padding: '0.75rem', borderRadius: '0.5rem', 
+                              border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                              resize: 'vertical', fontFamily: 'inherit', outline: 'none', lineHeight: '1.5'
+                            }}
+                          />
+                        </div>
+                        {isDiveNotesDirty() && (
+                          <div style={{ alignSelf: 'flex-end', marginBottom: '4px' }}>
+                            <button 
+                              onClick={() => saveDiveFeedback(diveResult)}
+                              disabled={savingDiveFeedback}
+                              style={{ 
+                                padding: '0.75rem 1.25rem', background: 'var(--primary)', color: 'white', 
+                                border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 600, 
+                                cursor: 'pointer', transition: 'all 0.2s', 
+                                opacity: savingDiveFeedback ? 0.7 : 1,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              {savingDiveFeedback ? 'Saving...' : 'Save Notes'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Product Feedback History */}
+                  <div className="card" style={{ padding: '2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                      <MessageSquare size={20} style={{ color: 'var(--primary)' }} />
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0 }}>Product Feedback</h3>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                      {diveResult.allFeedbacks && diveResult.allFeedbacks.length > 0 ? (
+                        diveResult.allFeedbacks.map((fb: any, idx: number) => (
+                          <div key={idx} style={{ padding: '1rem', borderRadius: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', gap: '1px' }}>
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star key={i} size={10} fill={i < (fb.rating || 0) ? '#f59e0b' : 'none'} color={i < (fb.rating || 0) ? '#f59e0b' : '#cbd5e1'} />
+                                  ))}
+                                </div>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                                  {fb.artifactType || fb.promptKind}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Clock size={10} />
+                                {new Date(fb.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.825rem', color: 'var(--foreground)', lineHeight: '1.4' }}>
+                              {fb.message || 'No message provided.'}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)', fontSize: '0.875rem', fontStyle: 'italic' }}>
+                          No product feedback received yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
               </div>
             )}

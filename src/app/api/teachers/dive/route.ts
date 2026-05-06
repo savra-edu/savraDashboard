@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     // 2. Fetch corresponding teacher details
     const teachers: any[] = await prisma.$queryRaw`
-      SELECT t.id, t.created_at as "createdAt", s.name as "schoolName"
+      SELECT t.id, t.created_at as "createdAt", t.phone, s.name as "schoolName"
       FROM teachers t
       LEFT JOIN schools s ON t.school_id = s.id
       WHERE t.user_id = ${user.id}
@@ -60,6 +60,14 @@ export async function GET(request: Request) {
       WHERE tc.teacher_id = ${teacher.id}
     `;
     const grades = rawGrades.map((g: any) => g.grade).filter(Boolean).join(', ') || 'N/A';
+
+    const rawSubjects: any = await prisma.$queryRaw`
+      SELECT DISTINCT s.name
+      FROM teacher_subjects ts
+      JOIN subjects s ON ts.subject_id = s.id
+      WHERE ts.teacher_id = ${teacher.id}
+    `;
+    const subjects = rawSubjects.map((s: any) => s.name).filter(Boolean).join(', ') || 'N/A';
 
     // Calculate subscription endsAt
     let endsAt = null;
@@ -95,7 +103,9 @@ export async function GET(request: Request) {
           id: teacher.id,
           createdAt: teacher.createdAt,
           schoolName: teacher.schoolName || 'Unknown',
-          grade: grades
+          grade: grades,
+          subject: subjects,
+          phone: teacher.phone || 'N/A'
         },
         subscription: {
           plan: user.plan || 'free',
@@ -114,7 +124,24 @@ export async function GET(request: Request) {
                  Number(quizzes?.[0]?.count ?? 0) + 
                  Number(lessons?.[0]?.count ?? 0) + 
                  Number(presentations?.[0]?.count ?? 0)
-        }
+        },
+        conversionFeedback: await prisma.conversionFeedback.findUnique({
+          where: { userId: user.id }
+        }),
+        allFeedbacks: await prisma.$queryRaw`
+          SELECT 
+            id, 
+            teacher_id as "teacherId", 
+            prompt_kind as "promptKind", 
+            rating, 
+            message, 
+            created_at as "createdAt", 
+            artifact_type as "artifactType", 
+            artifact_id as "artifactId"
+          FROM feedback
+          WHERE teacher_id = ${teacher.id}
+          ORDER BY created_at DESC
+        `
       }
     });
 
