@@ -160,6 +160,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <MessageSquare />
             <span>Feedback</span>
           </Link>
+          <Link href="/dive" title="Deep Dive Search" className={`nav-item ${pathname === '/dive' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <Search />
+            <span>Deep Dive Search</span>
+          </Link>
           <Link href="/teachers" title="Teachers Directory" className={`nav-item ${pathname === '/teachers' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <Users />
             <span>Teachers Directory</span>

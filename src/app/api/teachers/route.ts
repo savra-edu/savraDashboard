@@ -19,7 +19,10 @@ export async function GET(request: Request) {
     const where: any = {};
     if (search) {
       where.user = {
-        name: { contains: search, mode: 'insensitive' }
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } }
+        ]
       };
     }
 
