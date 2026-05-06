@@ -5,7 +5,9 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { 
   Zap, BarChart3, Calendar, Users, 
   ChevronDown, ChevronUp, Phone, Mail, ArrowUpRight,
-  ChevronLeft, ChevronRight 
+  ChevronLeft, ChevronRight, MessageSquare, ClipboardCheck,
+  PhoneOff, Clock, PhoneMissed, ThumbsUp, ThumbsDown, CheckCircle, Trash2,
+  School, BookOpen, Book 
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -29,7 +31,33 @@ interface ConvertibleLead {
   };
   conversionScore: number;
   feedback: string;
+  status?: string;
+  reason?: string;
+  notes?: string;
+  schoolName: string;
+  grade: string;
+  subject: string;
 }
+
+const CONVERSION_STATUSES = [
+  'DNP',
+  'CALL_LATER',
+  'WRONG_NUMBER',
+  'INTERESTED',
+  'NOT_INTERESTED',
+  'CONVERTED',
+  'IRRELEVANT'
+];
+
+const CONVERSION_REASONS = [
+  'EXPENSIVE',
+  'CONTENT_QUALITY',
+  'NOT_RIGHT_NOW',
+  'NEED_MORE_TIME_TO_THINK',
+  'NEED_MORE_FEATURES',
+  'USING_OTHER_PLATFORM',
+  'OTHERS'
+];
 
 export default function ConvertibleLeadsPage() {
   const [leads, setLeads] = useState<ConvertibleLead[]>([]);
@@ -55,27 +83,58 @@ export default function ConvertibleLeadsPage() {
   const listTotalPages = Math.max(1, Math.ceil(filteredLeads.length / ITEMS_PER_PAGE));
   const paginatedLeads = filteredLeads.slice((listPage - 1) * ITEMS_PER_PAGE, listPage * ITEMS_PER_PAGE);
 
-  const handleFeedbackChange = (leadId: string, value: string) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, feedback: value } : l));
+  const updateLeadField = async (leadId: string, field: keyof ConvertibleLead, value: any, autoSave = false) => {
+    setLeads(prev => {
+      const updatedLeads = prev.map(l => {
+        if (l.id !== leadId) return l;
+        const updatedLead = { ...l, [field]: value };
+        
+        if (autoSave) {
+          // Trigger save in the background
+          saveFeedback(updatedLead);
+        }
+        
+        return updatedLead;
+      });
+      return updatedLeads;
+    });
   };
 
   const saveFeedback = async (lead: ConvertibleLead) => {
     setSavingFeedback(lead.id);
+    const feedbackStr = JSON.stringify({
+      status: lead.status || '',
+      reason: lead.reason || '',
+      notes: lead.notes || ''
+    });
+
     try {
       const res = await fetch('/api/convertible/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: lead.id, feedback: lead.feedback }),
+        body: JSON.stringify({ userId: lead.id, feedback: feedbackStr }),
       });
       const data = await res.json();
       if (data.success) {
-        // Optional: show a toast or temporary success state
+        // Update local state to reflect the new feedback string so dirty check works
+        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, feedback: feedbackStr } : l));
       }
     } catch (err) {
       console.error('Failed to save feedback:', err);
     } finally {
       setSavingFeedback(null);
     }
+  };
+
+  const isNotesDirty = (lead: ConvertibleLead) => {
+    let originalNotes = lead.feedback || '';
+    if (lead.feedback && lead.feedback.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(lead.feedback);
+        originalNotes = parsed.notes || '';
+      } catch (e) {}
+    }
+    return lead.notes !== originalNotes;
   };
 
   useEffect(() => {
@@ -88,7 +147,27 @@ export default function ConvertibleLeadsPage() {
       const res = await fetch('/api/convertible');
       const data = await res.json();
       if (data.success) {
-        setLeads(data.data);
+        const parsedLeads = data.data.map((lead: any) => {
+          let status = '';
+          let reason = '';
+          let notes = lead.feedback || '';
+          
+          if (lead.feedback && (lead.feedback.startsWith('{') || lead.feedback.startsWith('['))) {
+            try {
+              const parsed = JSON.parse(lead.feedback);
+              if (parsed && typeof parsed === 'object') {
+                status = parsed.status || '';
+                reason = parsed.reason || '';
+                notes = parsed.notes || '';
+              }
+            } catch (e) {
+              // Not valid JSON, keep as notes
+            }
+          }
+          
+          return { ...lead, status, reason, notes };
+        });
+        setLeads(parsedLeads);
       }
     } catch (err) {
       console.error(err);
@@ -192,13 +271,37 @@ export default function ConvertibleLeadsPage() {
                       {lead.name.charAt(0)}
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700 }}>{lead.name}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700 }}>{lead.name}</h3>
+                        {lead.status && (
+                          <div style={{ 
+                            fontSize: '0.65rem', fontWeight: 800, 
+                            color: lead.status === 'CONVERTED' ? '#15803d' : '#64748b',
+                            background: lead.status === 'CONVERTED' ? '#f0fdf4' : '#f8fafc',
+                            padding: '0.15rem 0.45rem', borderRadius: '0.375rem', border: '1px solid currentColor',
+                            textTransform: 'uppercase', letterSpacing: '0.025em'
+                          }}>
+                            {lead.status.replace(/_/g, ' ')}
+                          </div>
+                        )}
+                      </div>
                       <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                           <Mail size={14} /> {lead.email}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                           <Phone size={14} /> {lead.phone}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', flexWrap: 'wrap', borderTop: '1px dashed #e2e8f0', paddingTop: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--foreground)', fontWeight: 500 }}>
+                          <School size={14} className="text-muted" /> {lead.schoolName}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--foreground)', fontWeight: 500 }}>
+                          <BookOpen size={14} className="text-muted" /> Grade {lead.grade}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--foreground)', fontWeight: 500 }}>
+                          <Book size={14} className="text-muted" /> {lead.subject}
                         </div>
                       </div>
                     </div>
@@ -259,30 +362,82 @@ export default function ConvertibleLeadsPage() {
                 {/* Feedback Section */}
                 <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    Conversion Feedback & Notes
+                    <MessageSquare size={14} style={{ color: 'var(--primary)' }} />
+                    Conversion Feedback & Sales Call Notes
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                    <textarea 
-                      value={lead.feedback}
-                      onChange={(e) => handleFeedbackChange(lead.id, e.target.value)}
-                      placeholder="Add notes about conversion status, phone calls, or feedback..."
-                      style={{ 
-                        flex: 1, minHeight: '80px', padding: '0.75rem', borderRadius: '0.5rem', 
-                        border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
-                        resize: 'vertical', fontFamily: 'inherit', outline: 'none'
-                      }}
-                    />
-                    <button 
-                      onClick={() => saveFeedback(lead)}
-                      disabled={savingFeedback === lead.id}
-                      style={{ 
-                        padding: '0.6rem 1rem', background: 'var(--primary)', color: 'white', 
-                        border: 'none', borderRadius: '0.5rem', fontSize: '0.825rem', fontWeight: 600, 
-                        cursor: 'pointer', transition: 'opacity 0.2s', opacity: savingFeedback === lead.id ? 0.7 : 1
-                      }}
-                    >
-                      {savingFeedback === lead.id ? 'Saving...' : 'Save Notes'}
-                    </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1', minWidth: '200px' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.4rem' }}>CALL STATUS</label>
+                        <select 
+                          value={lead.status}
+                          onChange={(e) => updateLeadField(lead.id, 'status', e.target.value, true)}
+                          style={{ 
+                            width: '100%', padding: '0.6rem', borderRadius: '0.5rem', 
+                            border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                            fontWeight: 500, outline: 'none', cursor: 'pointer'
+                          }}
+                        >
+                          <option value="">Select Status</option>
+                          {CONVERSION_STATUSES.map(status => (
+                            <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {lead.status && lead.status !== 'CONVERTED' && (
+                        <div style={{ flex: '1', minWidth: '200px' }}>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.4rem' }}>REASON</label>
+                          <select 
+                            value={lead.reason}
+                            onChange={(e) => updateLeadField(lead.id, 'reason', e.target.value, true)}
+                            style={{ 
+                              width: '100%', padding: '0.6rem', borderRadius: '0.5rem', 
+                              border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                              fontWeight: 500, outline: 'none', cursor: 'pointer'
+                            }}
+                          >
+                            <option value="">Select Reason</option>
+                            {CONVERSION_REASONS.map(reason => (
+                              <option key={reason} value={reason}>{reason.replace(/_/g, ' ')}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.4rem' }}>NOTES & FEEDBACK</label>
+                        <textarea 
+                          value={lead.notes}
+                          onChange={(e) => updateLeadField(lead.id, 'notes', e.target.value)}
+                          placeholder="Add details about the call, teacher's pain points, or follow-up items..."
+                          style={{ 
+                            width: '100%', minHeight: '100px', padding: '0.75rem', borderRadius: '0.5rem', 
+                            border: '1px solid var(--card-border)', background: 'white', fontSize: '0.875rem',
+                            resize: 'vertical', fontFamily: 'inherit', outline: 'none', lineHeight: '1.5'
+                          }}
+                        />
+                      </div>
+                      {isNotesDirty(lead) && (
+                        <div style={{ alignSelf: 'flex-end', marginBottom: '4px' }}>
+                          <button 
+                            onClick={() => saveFeedback(lead)}
+                            disabled={savingFeedback === lead.id}
+                            style={{ 
+                              padding: '0.75rem 1.25rem', background: 'var(--primary)', color: 'white', 
+                              border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 600, 
+                              cursor: 'pointer', transition: 'all 0.2s', 
+                              opacity: savingFeedback === lead.id ? 0.7 : 1,
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                            }}
+                          >
+                            {savingFeedback === lead.id ? 'Saving...' : 'Save Notes'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
  

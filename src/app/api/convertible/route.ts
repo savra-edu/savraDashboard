@@ -38,6 +38,9 @@ export async function GET() {
           t.id as "teacherId",
           t.phone as "teacherPhone",
           t.created_at as "joinedAt",
+          sch.name as "schoolName",
+          (SELECT STRING_AGG(DISTINCT CAST(cl.grade AS TEXT), ', ') FROM teacher_classes tc JOIN classes cl ON tc.class_id = cl.id WHERE tc.teacher_id = t.id) as "grade",
+          (SELECT STRING_AGG(DISTINCT sub.name, ', ') FROM teacher_subjects ts JOIN subjects sub ON ts.subject_id = sub.id WHERE ts.teacher_id = t.id) as "subject",
           CAST(s.distinct_days AS INTEGER) as "distinctDays",
           CAST(s.total_artifacts AS INTEGER) as "totalArtifacts",
           CAST(s.worksheets_count AS INTEGER) as "worksheets",
@@ -49,6 +52,7 @@ export async function GET() {
           cf.feedback as "feedback"
       FROM users u
       JOIN teachers t ON t.user_id = u.id
+      JOIN schools sch ON t.school_id = sch.id
       JOIN aggregated_signals s ON s.teacher_id = t.id
       LEFT JOIN conversion_feedback cf ON cf.user_id = u.id
       WHERE u.plan = 'free' OR u.plan IS NULL
@@ -62,6 +66,9 @@ export async function GET() {
       name: lead.userName || 'Anonymous User',
       email: lead.userEmail,
       phone: lead.teacherPhone || '—',
+      schoolName: lead.schoolName || '—',
+      grade: lead.grade || '—',
+      subject: lead.subject || '—',
       joinedAt: lead.joinedAt,
       feedback: lead.feedback || '',
       metrics: {
