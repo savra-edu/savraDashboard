@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { parseAssignedTo } from '@/lib/assigned-to';
 
 export async function GET() {
   try {
@@ -49,7 +50,8 @@ export async function GET() {
           CAST(s.lessons_count AS INTEGER) as "lessons",
           CAST(s.presentations_count AS INTEGER) as "presentations",
           CAST(((s.distinct_days * 15) + (s.total_artifacts * 2)) AS INTEGER) as "conversionScore",
-          cf.feedback as "feedback"
+          cf.feedback as "feedback",
+          cf.assigned_to::text as "assignedTo"
       FROM users u
       JOIN teachers t ON t.user_id = u.id
       JOIN schools sch ON t.school_id = sch.id
@@ -70,6 +72,7 @@ export async function GET() {
       grade: lead.grade || '—',
       subject: lead.subject || '—',
       joinedAt: lead.joinedAt,
+      assignedTo: parseAssignedTo(lead.assignedTo),
       feedback: lead.feedback || '',
       metrics: {
         distinctDays: lead.distinctDays || 0,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { parseAssignedTo } from '@/lib/assigned-to';
 
 export async function POST(request: Request) {
   try {
@@ -11,14 +12,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
     }
 
+    const updateData: { feedback: string; assignedTo?: ReturnType<typeof parseAssignedTo> } = {
+      feedback: typeof feedback === 'string' ? feedback : '',
+    };
+
+    let createAssignedTo = parseAssignedTo(undefined);
+    if ('assignedTo' in body && body.assignedTo !== undefined) {
+      const a = parseAssignedTo(body.assignedTo);
+      updateData.assignedTo = a;
+      createAssignedTo = a;
+    }
+
     let conversionFeedback;
     try {
-      conversionFeedback = await (prisma as any).conversionFeedback.upsert({
+      conversionFeedback = await prisma.conversionFeedback.upsert({
         where: { userId },
-        update: { feedback },
+        update: updateData,
         create: {
           userId,
-          feedback,
+          feedback: typeof feedback === 'string' ? feedback : '',
+          assignedTo: createAssignedTo,
         },
       });
       console.log('Successfully upserted feedback:', conversionFeedback.id);

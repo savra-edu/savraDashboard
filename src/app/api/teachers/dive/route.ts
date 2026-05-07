@@ -12,7 +12,14 @@ export async function GET(request: Request) {
 
     // 1. Fetch user & subscription data
     const users: any[] = await prisma.$queryRaw`
-      SELECT id, email, name, plan, plan_billing_cycle as "planBillingCycle", activated_on as "activatedOn"
+      SELECT
+        id,
+        email,
+        name,
+        plan,
+        plan_billing_cycle as "planBillingCycle",
+        activated_on as "activatedOn",
+        created_at as "createdAt"
       FROM users
       WHERE email = ${email}
       LIMIT 1
@@ -52,12 +59,48 @@ export async function GET(request: Request) {
 
     const teacher = teachers[0];
 
+    const generationHistory: Array<{
+      id: string;
+      title: string;
+      createdAt: Date | string;
+      kind: string;
+    }> = await prisma.$queryRaw`
+      WITH gen AS (
+        SELECT id::text AS id,
+               title,
+               created_at,
+               'lesson'::text AS kind
+        FROM lessons WHERE teacher_id::text = ${teacher.id}
+        UNION ALL
+        SELECT id::text,
+               title,
+               created_at,
+               'quiz'::text
+        FROM quizzes WHERE teacher_id::text = ${teacher.id}
+        UNION ALL
+        SELECT id::text,
+               title,
+               created_at,
+               CASE WHEN is_worksheet THEN 'worksheet'::text ELSE 'question_paper'::text END
+        FROM assessments WHERE teacher_id::text = ${teacher.id}
+        UNION ALL
+        SELECT id::text,
+               title,
+               created_at,
+               'presentation'::text
+        FROM presentations WHERE teacher_id::text = ${teacher.id}
+      )
+      SELECT id, title, created_at AS "createdAt", kind FROM gen
+      ORDER BY created_at DESC NULLS LAST
+      LIMIT 300
+    `;
+
     // 2.5 Fetch grades
     const rawGrades: any = await prisma.$queryRaw`
       SELECT DISTINCT c.grade 
       FROM teacher_classes tc
       JOIN classes c ON tc.class_id = c.id
-      WHERE tc.teacher_id = ${teacher.id}
+      WHERE tc.teacher_id::text = ${teacher.id}
     `;
     const grades = rawGrades.map((g: any) => g.grade).filter(Boolean).join(', ') || 'N/A';
 
@@ -65,7 +108,7 @@ export async function GET(request: Request) {
       SELECT DISTINCT s.name
       FROM teacher_subjects ts
       JOIN subjects s ON ts.subject_id = s.id
-      WHERE ts.teacher_id = ${teacher.id}
+      WHERE ts.teacher_id::text = ${teacher.id}
     `;
     const subjects = rawSubjects.map((s: any) => s.name).filter(Boolean).join(', ') || 'N/A';
 
@@ -88,11 +131,11 @@ export async function GET(request: Request) {
       lessons,
       presentations
     ] = await Promise.all([
-      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM assessments WHERE teacher_id = ${teacher.id} AND is_worksheet = true`,
-      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM assessments WHERE teacher_id = ${teacher.id} AND is_worksheet = false`,
-      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM quizzes WHERE teacher_id = ${teacher.id}`,
-      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM lessons WHERE teacher_id = ${teacher.id}`,
-      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM presentations WHERE teacher_id = ${teacher.id}`
+      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM assessments WHERE teacher_id::text = ${teacher.id} AND is_worksheet = true`,
+      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM assessments WHERE teacher_id::text = ${teacher.id} AND is_worksheet = false`,
+      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM quizzes WHERE teacher_id::text = ${teacher.id}`,
+      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM lessons WHERE teacher_id::text = ${teacher.id}`,
+      prisma.$queryRaw<Array<{ count: bigint | number }>>`SELECT COUNT(*) as count FROM presentations WHERE teacher_id::text = ${teacher.id}`
     ]);
 
     return NextResponse.json({
@@ -139,9 +182,16 @@ export async function GET(request: Request) {
             artifact_type as "artifactType", 
             artifact_id as "artifactId"
           FROM feedback
-          WHERE teacher_id = ${teacher.id}
+          WHERE teacher_id::text = ${teacher.id}
           ORDER BY created_at DESC
-        `
+        `,
+        generationHistory: generationHistory.map((row) => ({
+          ...row,
+          createdAt:
+            row.createdAt instanceof Date
+              ? row.createdAt.toISOString()
+              : String(row.createdAt),
+        }))
       }
     });
 
