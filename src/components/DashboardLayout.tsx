@@ -3,9 +3,9 @@
 import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  Users, GraduationCap, LayoutDashboard, 
-  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, CreditCard, Bot,
+import {
+  Users, GraduationCap, LayoutDashboard,
+  Settings, LogOut, Search, Bell, Activity, Sparkles, Lock, MessageSquare, CreditCard, Bot, UserPlus,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return next;
     });
   };
-  
+
   // Security Layer Check
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [password, setPassword] = useState('');
@@ -59,10 +59,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       setError(true);
     }
   };
-  
+
   const handleSignOut = () => {
-     localStorage.removeItem('savra_secure_access');
-     setIsAuthenticated(false);
+    localStorage.removeItem('savra_secure_access');
+    setIsAuthenticated(false);
   };
 
   // Only render nothing during the initial mount phase to prevent ugly flashing
@@ -78,23 +78,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Protected Dashboard</h1>
           <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginBottom: '2rem' }}>Please enter the master administrative key to launch the Savra platform metrics globally.</p>
-          
+
           <form onSubmit={handleLogin}>
-            <input 
+            <input
               type="password"
               placeholder="Enter passcode..."
               value={password}
               onChange={(e) => {
-                 setPassword(e.target.value);
-                 setError(false);
+                setPassword(e.target.value);
+                setError(false);
               }}
               style={{ width: '100%', padding: '0.75rem 1rem', border: `1px solid ${error ? 'var(--danger)' : 'var(--card-border)'}`, borderRadius: '0.5rem', marginBottom: error ? '0.5rem' : '1.5rem', outline: 'none' }}
               autoFocus
             />
             {error && <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginBottom: '1.5rem', fontWeight: 500 }}>Incorrect password attempt.</p>}
-            
+
             <button type="submit" style={{ width: '100%', padding: '0.75rem', background: 'var(--foreground)', color: 'var(--background)', border: 'none', borderRadius: '0.5rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-               Unlock Dashboard
+              Unlock Dashboard
             </button>
           </form>
         </div>
@@ -125,7 +125,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           )}
           {sidebarCollapsed && <div className="brand-logo" title="Savra">S</div>}
         </div>
-        
+
         <nav id="dashboard-sidebar-nav" className="sidebar-nav">
           <div className="nav-label">Main Menu</div>
           <Link href="/" title="Dashboard" className={`nav-item ${pathname === '/' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
@@ -168,6 +168,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Users />
             <span>Teachers Directory</span>
           </Link>
+          <Link href="/referrals" title="Referral Program" className={`nav-item ${pathname === '/referrals' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+            <UserPlus />
+            <span>Referral Program</span>
+          </Link>
           <Link href="/subscriptions" title="Subscriptions" className={`nav-item ${pathname === '/subscriptions' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
             <CreditCard />
             <span>Subscriptions</span>
@@ -176,7 +180,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <GraduationCap />
             <span>Schools</span>
           </Link>
-          
+
           <div className="nav-label" style={{ marginTop: '1.5rem' }}>Preferences</div>
           <div className="nav-item" title="Settings">
             <Settings />
@@ -210,14 +214,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <header className="header">
           <div style={{ position: 'relative', width: '300px' }}>
             <Search style={{ position: 'absolute', left: '12px', top: '10px', width: '16px', color: 'var(--muted)' }} />
-            <input 
-              type="text" 
-              placeholder="Search anything..." 
-              style={{ 
-                width: '100%', padding: '0.5rem 1rem 0.5rem 2.5rem', 
+            <input
+              type="text"
+              placeholder="Search anything..."
+              style={{
+                width: '100%', padding: '0.5rem 1rem 0.5rem 2.5rem',
                 borderRadius: '9999px', border: '1px solid var(--card-border)',
                 background: '#f8fafc', fontSize: '0.875rem', outline: 'none'
-              }} 
+              }}
             />
           </div>
           <div className="user-profile">

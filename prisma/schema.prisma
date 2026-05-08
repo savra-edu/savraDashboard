@@ -17,8 +17,25 @@ model User {
   createdAt       DateTime         @default(now()) @map("created_at")
   teacher         Teacher?
   conversionFeedback ConversionFeedback?
+  referral        Referral?        @relation("Ambassador")
+  referredById    String?          @map("referral_id") @db.Uuid
+  referredBy      Referral?        @relation("Usage", fields: [referredById], references: [id])
   
   @@map("users")
+}
+
+model Referral {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  userId      String?  @unique @map("user_id")
+  useCount    Int      @default(0) @map("use_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user        User?    @relation("Ambassador", fields: [userId], references: [id], onDelete: SetNull)
+  usersReferred User[]  @relation("Usage")
+
+  @@map("referrals")
 }
 
 model Teacher {
